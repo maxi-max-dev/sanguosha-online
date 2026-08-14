@@ -1119,8 +1119,16 @@ body {
 	.actions { bottom: 21vmin; }
 	.skills { bottom: 21vmin; }
 	.prompt { font-size: 2.4vmin; max-width: 52vmin; }
-	.btn { font-size: 2.8vmin; min-width: 14vmin; padding: 1.3vmin 2.4vmin; }
-	.skill-btn { font-size: 2.3vmin; padding: 0.9vmin 1.6vmin; }
+	/* 触摸目标不能小于 ~44px。390px 高的屏上 11.5vmin ≈ 45px，按这个兜底，
+	   否则确定键只有 23px 高，手指根本点不准 */
+	.btn {
+		font-size: 2.8vmin;
+		min-width: 16vmin;
+		min-height: 11.5vmin;
+		padding: 1vmin 2.4vmin;
+	}
+	.skill-btn { font-size: 2.3vmin; min-height: 9vmin; padding: 0.9vmin 1.8vmin; }
+	.option-row .btn { min-width: 18vmin; font-size: 3vmin; }
 
 	.log { font-size: 1.9vmin; width: 36vmin; top: 30vmin; max-height: 30vmin; }
 	.center__caption { font-size: 3vmin; }
