@@ -9,10 +9,10 @@
     "dev": "pnpm --filter @sgs/web dev",
     "dev:server": "pnpm --filter @sgs/server dev",
     "build": "pnpm --filter @sgs/web build",
-    "deploy": "pnpm --filter @sgs/web build && pnpm --filter @sgs/server deploy",
     "soak": "pnpm --filter @sgs/engine soak",
-    "login": "pnpm --filter @sgs/server exec wrangler login",
-    "whoami": "pnpm --filter @sgs/server exec wrangler whoami"
+    "cf:login": "pnpm --filter @sgs/server exec wrangler login",
+    "cf:whoami": "pnpm --filter @sgs/server exec wrangler whoami",
+    "cf:deploy": "pnpm --filter @sgs/web build && pnpm --filter @sgs/server exec wrangler deploy"
   },
   "devDependencies": {
     "sharp": "^0.35.3",

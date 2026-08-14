@@ -13,9 +13,13 @@ pnpm --filter @sgs/server dev     # http://localhost:8787
 ## 部署到 Cloudflare（0 元）
 
 ```bash
-pnpm exec wrangler login          # 一次性，浏览器授权
-pnpm deploy                       # 构建前端 + 部署 Worker
+pnpm cf:login                     # 一次性，浏览器授权
+pnpm cf:deploy                    # 构建前端 + 部署 Worker
 ```
+
+> 脚本名一律加 `cf:` 前缀是有原因的：`login` / `whoami` / `deploy` 都是 **pnpm 的内置命令**，
+> 内置优先级高于 package.json 脚本，直接叫这些名字会被静默劫持
+> （`pnpm login` 会去登录 npmjs.org，`pnpm deploy` 会跑 pnpm 自己的包部署）。
 
 ## 架构
 
