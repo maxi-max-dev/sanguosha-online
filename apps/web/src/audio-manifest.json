@@ -1,0 +1,15 @@
+{
+  "effect": {
+    "turnStart": null,
+    "use": "/audio/effect/use.mp3",
+    "respond": "/audio/effect/respond.mp3",
+    "damage": "/audio/effect/damage.mp3",
+    "damageFire": "/audio/effect/damageFire.mp3",
+    "damageThunder": "/audio/effect/damageThunder.mp3",
+    "recover": "/audio/effect/recover.mp3",
+    "judge": "/audio/effect/judge.mp3",
+    "dieMale": "/audio/effect/dieMale.mp3",
+    "dieFemale": "/audio/effect/dieFemale.mp3",
+    "draw": "/audio/effect/draw.mp3"
+  }
+}

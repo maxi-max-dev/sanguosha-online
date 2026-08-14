@@ -892,6 +892,17 @@ body {
 	cursor: default;
 }
 
+/* 静音按钮：贴左上角，跟牌堆（垂直居中）和对手席位（顶部弧形）都不打架 */
+.sound-toggle {
+	position: absolute;
+	left: 2vmin;
+	top: 1.5vmin;
+	z-index: 5;
+	font-size: 2vmin;
+	line-height: 1;
+	padding: 0.8vmin 1vmin;
+}
+
 /* ─────────────────────── 读秒条 ─────────────────────── */
 
 .timer {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView } from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_SYMBOL } from '../art.js';
+import { play, useSound } from '../sound.js';
 import { cardSelectable, optionForCard, recastOptionFor, useGame } from '../store.js';
 
 const IDENTITY_CN: Record<string, string> = {
@@ -62,6 +63,8 @@ export default function Table() {
 			<Timer />
 			<FlyingCards view={view} />
 			<Floats view={view} />
+			<SoundEffects view={view} />
+			<SoundToggle />
 			{view.finished && <Result view={view} />}
 		</div>
 	);
@@ -216,6 +219,78 @@ function floatFor(
 			void view;
 			return null;
 	}
+}
+
+/**
+ * 音效：跟 Floats 是一模一样的"游标记录已处理到哪条"写法 —— 服务端每次推的
+ * 是最近 40 条战报，不去重的话每次 log 更新都会把这 40 条全部重播一遍。
+ * 这个组件不渲染任何东西，纯粹是拿 useEffect 当日志订阅的钩子。
+ */
+function SoundEffects({ view }: { view: GameView }) {
+	const log = useGame((s) => s.log);
+	const seen = useRef(-1);
+
+	useEffect(() => {
+		if (log.length === 0) return;
+		const fresh = log.filter((e) => e.t > seen.current);
+		if (fresh.length === 0) return;
+		seen.current = log[log.length - 1].t;
+
+		for (const e of fresh) soundFor(e, view);
+	}, [log, view]);
+
+	return null;
+}
+
+function soundFor(e: { kind: string; [k: string]: unknown }, view: GameView): void {
+	switch (e.kind) {
+		case 'use':
+			play('use');
+			break;
+		case 'respond':
+			play('respond');
+			break;
+		case 'damage': {
+			const nature = e.nature as string | undefined;
+			play(nature === 'fire' ? 'damageFire' : nature === 'thunder' ? 'damageThunder' : 'damage');
+			break;
+		}
+		case 'recover':
+			play('recover');
+			break;
+		case 'judge':
+			play('judge');
+			break;
+		case 'die': {
+			// noname 按性别分了两条通用阵亡音效，view 里玩家自带 gender 字段，直接对上
+			const gender = view.players.find((p) => p.id === (e.who as string))?.gender;
+			play(gender === 'female' ? 'dieFemale' : 'dieMale');
+			break;
+		}
+		case 'move': {
+			const reason = e.reason as string | undefined;
+			if (reason === 'draw' || reason === 'drawPhase') play('draw');
+			break;
+		}
+		// turnStart：noname 里没有贴切的通用音效可用，见 tools/audio/fetch-audio.mjs 的说明，故意不播
+		default:
+			break;
+	}
+}
+
+/** 静音按钮：默认开启，状态存本地，跟牌局本身无关所以摆在不挡视线的左上角 */
+function SoundToggle() {
+	const muted = useSound((s) => s.muted);
+	const toggle = useSound((s) => s.toggle);
+	return (
+		<button
+			className="skill-btn sound-toggle"
+			onClick={toggle}
+			title={muted ? '开启音效' : '关闭音效'}
+		>
+			{muted ? '🔇' : '🔊'}
+		</button>
+	);
 }
 
 function orderOthers(view: GameView): PlayerView[] {

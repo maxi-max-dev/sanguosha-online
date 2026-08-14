@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { preloadSounds } from './sound.js';
 import { useGame } from './store.js';
 import Table from './components/Table.js';
 
@@ -17,6 +18,12 @@ export default function App() {
 		if (!s.name) return;
 		const code = new URLSearchParams(location.search).get('r') || localStorage.getItem('sgs.room');
 		if (code) s.connect(code);
+	}, []);
+
+	// 尽早开始解码音效：从首页点"创建/加入房间"到真正进桌出牌之间隔着选将等好几步，
+	// 足够这几百 KB 的文件在后台加载完，真正开始出牌时就不会有第一次触发的延迟
+	useEffect(() => {
+		preloadSounds();
 	}, []);
 
 	return (

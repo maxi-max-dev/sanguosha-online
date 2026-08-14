@@ -7,4 +7,5 @@ dist/
 
 # 美术资源：体积大且与代码解耦，单独管理（见 assets/README.md）
 apps/web/public/art/
+apps/web/public/audio/
 tools/.cache/
