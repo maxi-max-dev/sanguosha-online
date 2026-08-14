@@ -92,6 +92,13 @@ export default function Table() {
 				</>
 			)}
 
+			{me && !me.alive && !view.finished && (
+				<div className="spectating">
+					你已阵亡 · 观战中
+					<span>牌局还在继续，等这局打完可以再来一局</span>
+				</div>
+			)}
+
 			<Timer />
 			<FlyingCards view={view} />
 			<Floats view={view} />

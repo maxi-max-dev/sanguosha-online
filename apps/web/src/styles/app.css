@@ -1639,3 +1639,39 @@ body {
 	letter-spacing: 0.3vmin;
 	color: var(--gold-200);
 }
+
+/* 阵亡后游戏还在继续时的观战提示。
+   一局 5 个人有 4 个会经历这个状态，而在此之前他看到的是一张普通牌桌、
+   空手牌、没有任何解释 —— 分不清是自己出局了还是界面卡住了 */
+.spectating {
+	position: absolute;
+	left: 50%;
+	bottom: 6vmin;
+	transform: translateX(-50%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.4vmin;
+	padding: 1vmin 2.4vmin;
+	border-radius: 0.5vmin;
+	background: rgba(15, 13, 11, 0.92);
+	border: 0.15vmin solid var(--blood);
+	font-family: var(--font-title);
+	font-size: 2.4vmin;
+	letter-spacing: 0.3vmin;
+	color: #e0554a;
+	z-index: 6;
+	pointer-events: none;
+}
+
+.spectating span {
+	font-family: var(--font-ui);
+	font-size: 1.6vmin;
+	letter-spacing: 0;
+	color: var(--paper-300);
+}
+
+@media (max-height: 520px) {
+	.spectating { font-size: 2.8vmin; }
+	.spectating span { font-size: 1.9vmin; }
+}
