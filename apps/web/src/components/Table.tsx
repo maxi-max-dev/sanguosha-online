@@ -60,8 +60,81 @@ export default function Table() {
 			)}
 
 			<Timer />
+			<FlyingCards view={view} />
 			<Floats view={view} />
 			{view.finished && <Result view={view} />}
+		</div>
+	);
+}
+
+/**
+ * 出牌动画：牌从出牌人的座位飞向牌桌中央，指定了目标就再从中央扑向目标。
+ *
+ * 之前牌是凭空出现在中央的 —— 5~8 人同桌时，光看中间那张牌根本分不清是谁打谁。
+ * 这里飞的是一张"残影"，和真实的中央区渲染无关，所以不会和状态同步打架。
+ */
+function FlyingCards({ view }: { view: GameView }) {
+	const log = useGame((s) => s.log);
+	const [flights, setFlights] = useState<
+		Array<{ key: number; from: DOMRect; to: DOMRect; card?: Card; name: string }>
+	>([]);
+	const seen = useRef(-1);
+
+	useEffect(() => {
+		if (log.length === 0) return;
+		const fresh = log.filter((e) => e.t > seen.current && (e.kind === 'use' || e.kind === 'respond'));
+		seen.current = log.length ? log[log.length - 1].t : seen.current;
+		if (fresh.length === 0) return;
+
+		const rectOf = (pid: string) =>
+			document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(pid)}"]`)?.getBoundingClientRect();
+		const center = document.querySelector<HTMLElement>('.center')?.getBoundingClientRect();
+		if (!center) return;
+
+		const next: typeof flights = [];
+		for (const e of fresh) {
+			const src = (e.source ?? e.who) as string | undefined;
+			if (!src) continue;
+			const from = rectOf(src);
+			if (!from) continue;
+			// 有目标就飞向目标，没有就停在中央
+			const targets = (e.targets as string[] | undefined) ?? [];
+			const to = targets.length === 1 ? rectOf(targets[0]) ?? center : center;
+			const ids = (e.cards as number[] | undefined) ?? [];
+			next.push({
+				key: e.t,
+				from,
+				to,
+				card: ids.length ? view.cards[ids[0]] : undefined,
+				name: e.name as string,
+			});
+		}
+		if (next.length === 0) return;
+
+		setFlights((prev) => [...prev, ...next]);
+		const keys = new Set(next.map((n) => n.key));
+		setTimeout(() => setFlights((prev) => prev.filter((f) => !keys.has(f.key))), 620);
+	}, [log, view]);
+
+	return (
+		<div className="floats">
+			{flights.map((f) => (
+				<div
+					key={f.key}
+					className="fly"
+					style={
+						{
+							'--x0': `${f.from.left + f.from.width / 2}px`,
+							'--y0': `${f.from.top + f.from.height / 2}px`,
+							'--x1': `${f.to.left + f.to.width / 2}px`,
+							'--y1': `${f.to.top + f.to.height / 2}px`,
+						} as React.CSSProperties
+					}
+				>
+					<CardFace card={f.card} />
+					{!f.card && <div className="fly__name">{CARDS[f.name]?.cn ?? f.name}</div>}
+				</div>
+			))}
 		</div>
 	);
 }

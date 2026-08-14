@@ -934,6 +934,55 @@ body {
 	white-space: nowrap;
 }
 
+/* 出牌残影：从出牌人飞向目标（或中央），落点稍微放大一下再消失 */
+.fly {
+	position: absolute;
+	left: 0;
+	top: 0;
+	transform: translate(-50%, -50%);
+	animation: fly 0.6s cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
+	filter: drop-shadow(0 0 1.4vmin rgba(232, 200, 106, 0.55));
+}
+
+.fly .card {
+	width: 8vmin;
+}
+
+.fly__name {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	font-family: var(--font-title);
+	font-size: 2vmin;
+	color: var(--paper-100);
+	text-shadow: 0 0 0.6vmin #000;
+}
+
+@keyframes fly {
+	0% {
+		left: var(--x0);
+		top: var(--y0);
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.55);
+	}
+	18% {
+		opacity: 1;
+	}
+	70% {
+		left: var(--x1);
+		top: var(--y1);
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1.15);
+	}
+	100% {
+		left: var(--x1);
+		top: var(--y1);
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(1);
+	}
+}
+
 .float.damage { color: #e0554a; }
 .float.recover { color: #6fd18a; }
 .float.skill { color: var(--gold-100); }
