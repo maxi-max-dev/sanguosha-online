@@ -335,6 +335,29 @@ body {
 	color: var(--gold-100);
 }
 
+/* ── 状态角标（酒、已出杀数……）：贴右边缘，避开顶部势力/身份和底部装备区 ── */
+.marks {
+	position: absolute;
+	top: 6.6vmin;
+	right: 0.5vmin;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.3vmin;
+	max-width: 7.5vmin;
+}
+
+.mark {
+	font-size: 1.2vmin;
+	line-height: 1.4;
+	padding: 0.15vmin 0.5vmin;
+	border-radius: 0.6vmin;
+	background: rgba(15, 13, 11, 0.82);
+	border: 0.12vmin solid var(--gold-300);
+	color: var(--gold-100);
+	white-space: nowrap;
+}
+
 /* ── 横置（铁索） ── */
 .general.chained .general__art {
 	transform: rotate(90deg) scale(1.35);
@@ -848,6 +871,76 @@ body {
 	.pick { width: 27vmin; min-height: 30vmin; }
 	.pick__art { height: 13vmin; }
 	.pick__skill { font-size: 1.6vmin; }
+}
+
+/* ─────────────────────── 选牌浮层（chooseCards / distribute） ─────────────────────── */
+
+.choose-cards {
+	display: flex;
+	flex-direction: column;
+	gap: 1.6vmin;
+	max-width: 90vw;
+	max-height: 56vh;
+	overflow-y: auto;
+	padding: 0 1vmin;
+}
+
+.choose-cards__label {
+	font-family: var(--font-title);
+	font-size: 1.8vmin;
+	letter-spacing: 0.15vmin;
+	color: var(--gold-200);
+	margin-bottom: 0.6vmin;
+}
+
+.choose-cards__row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1vmin;
+}
+
+.choose-cards__row .card,
+.distribute__row .card {
+	cursor: pointer;
+	transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.choose-cards__row .card.selected {
+	transform: translateY(-1vmin);
+	box-shadow: var(--shadow-lift), var(--glow-active);
+}
+
+.distribute {
+	display: flex;
+	flex-direction: column;
+	gap: 1.4vmin;
+	max-width: 90vw;
+	max-height: 56vh;
+	overflow-y: auto;
+	padding: 0 1vmin;
+}
+
+.distribute__row {
+	display: flex;
+	align-items: center;
+	gap: 1.4vmin;
+}
+
+.distribute__row .card {
+	flex: 0 0 auto;
+	cursor: default;
+}
+
+.distribute__targets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6vmin;
+}
+
+.distribute__btn.active {
+	background: var(--gold-plate);
+	color: #2a1f05;
+	box-shadow: var(--glow-gold);
 }
 
 /* 多选一的选项：点一下即生效，做得比确认按钮更显眼、更好按 */

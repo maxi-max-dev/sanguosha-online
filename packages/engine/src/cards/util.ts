@@ -8,12 +8,17 @@
 import type { Game } from '../game.js';
 
 /** 某角色手牌/装备区/判定区里的全部牌，供过河拆桥/顺手牵羊这类"选一张牌"的卡牌使用 */
-export function allCardsOf(g: Game, playerId: string): Array<{ id: number; unknown?: boolean }> {
+export function allCardsOf(
+	g: Game,
+	playerId: string,
+): Array<{ id: number; unknown?: boolean; from: string; zone: string }> {
 	const p = g.player(playerId);
-	const out: Array<{ id: number; unknown?: boolean }> = [];
-	for (const id of p.hand) out.push({ id, unknown: true });
-	for (const id of Object.values(p.equip)) if (typeof id === 'number') out.push({ id });
-	for (const id of p.judge) out.push({ id });
+	const out: Array<{ id: number; unknown?: boolean; from: string; zone: string }> = [];
+	// from/zone 是前端选牌浮层分组展示用的（"XX 的手牌/装备区/判定区"），
+	// 不带就没法告诉玩家这张背面朝上的牌到底是谁的
+	for (const id of p.hand) out.push({ id, unknown: true, from: playerId, zone: 'hand' });
+	for (const id of Object.values(p.equip)) if (typeof id === 'number') out.push({ id, from: playerId, zone: 'equip' });
+	for (const id of p.judge) out.push({ id, from: playerId, zone: 'judge' });
 	return out;
 }
 

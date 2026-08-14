@@ -51,7 +51,10 @@ function targetsFor(g: Game, who: string, name: string, cards: number[], viaSkil
 	if (max === 'all') {
 		return { min: candidates.length, max: candidates.length, candidates, auto: true };
 	}
-	return { min, max, candidates };
+	// 候选人数恰好等于要选的人数时，选择本身不存在（唯一目标也算，比如
+	// 全场只剩一个人在攻击范围内的【杀】），没必要再让玩家点一下确认
+	const auto = candidates.length === min && min === max;
+	return { min, max, candidates, auto };
 }
 
 /** 一张实体牌变成一个出牌选项；目标不足则返回 null */

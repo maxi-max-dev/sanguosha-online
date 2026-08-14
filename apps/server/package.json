@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@sgs/engine": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250204.0",
+    "@types/node": "^26.2.0",
     "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
     "wrangler": "^3.107.0"
   }
 }

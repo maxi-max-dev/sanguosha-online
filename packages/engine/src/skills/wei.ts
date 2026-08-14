@@ -86,10 +86,10 @@ const fankui: SkillDef = {
 				const src = g.player(ev.source!);
 				const candidates = [
 					// 手牌背面选：不能让发动者看见点数花色再挑
-					...src.hand.map((id) => ({ id, unknown: true })),
+					...src.hand.map((id) => ({ id, unknown: true, from: src.id, zone: 'hand' })),
 					...Object.values(src.equip)
 						.filter((x): x is number => typeof x === 'number')
-						.map((id) => ({ id })),
+						.map((id) => ({ id, from: src.id, zone: 'equip' })),
 				];
 				const picked = await g.askCards(self.id, `反馈：获得 ${src.nickname} 的一张牌`, candidates, 1, 1, true);
 				if (picked.length) await g.gainCards(self.id, picked, 'fankui', src.id);
@@ -194,7 +194,7 @@ const tuxi: SkillDef = {
 					const picked = await g.askCards(
 						self.id,
 						`突袭：获得 ${tp.nickname} 的一张手牌`,
-						tp.hand.map((id) => ({ id, unknown: true })),
+						tp.hand.map((id) => ({ id, unknown: true, from: tp.id, zone: 'hand' })),
 						1,
 						1,
 					);

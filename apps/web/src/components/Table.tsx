@@ -22,9 +22,30 @@ const PHASE_CN: Record<string, string> = {
 	end: '回合结束',
 };
 
+const ZONE_CN: Record<string, string> = {
+	hand: '手牌',
+	equip: '装备区',
+	judge: '判定区',
+};
+
+/**
+ * 状态角标的中文名表。PlayerView.marks 是 view.ts 的 publicMarks 已经按白名单
+ * 下发好的原始 flag，这里只管展示，不做任何规则判断。flag key 是拼音，
+ * 加新状态要显示时在这补一行就行。
+ */
+const MARK_LABEL: Record<string, (v: number) => string> = {
+	'turn:jiuActive': () => '酒',
+	'turn:shaUsed': (v) => `杀×${v}`,
+};
+
 export default function Table() {
 	const view = useGame((s) => s.view);
 	const [inspect, setInspect] = useState<string | undefined>();
+	// 新请求一来就把武将详情关掉：选牌浮层这类全屏面板会盖住整张桌子，
+	// 之前开着的 Inspect 会卡在下面收不到点击，看起来像点不动
+	useEffect(() => {
+		if (view?.ask) setInspect(undefined);
+	}, [view?.ask?.seq]);
 	if (!view) return null;
 
 	const me = view.players.find((p) => p.id === view.you);
@@ -371,6 +392,7 @@ function Seat({
 			)}
 
 			<Equips p={p} view={view} />
+			<Marks p={p} />
 
 			<div className="general__nick">{p.nickname}</div>
 			<Hp hp={p.hp} maxHp={p.maxHp} />
@@ -378,6 +400,26 @@ function Seat({
 
 			{p.offline && <div className="general__offline">离线托管</div>}
 			{ask?.who === p.id && !p.offline && <div className="general__thinking" />}
+		</div>
+	);
+}
+
+/**
+ * 状态角标：酒、已出杀数……都是服务端已经下发的公开 flag（PlayerView.marks），
+ * 之前没人读，玩家用了酒也不知道生效没有。见文件头 MARK_LABEL。
+ */
+function Marks({ p }: { p: PlayerView }) {
+	const items = Object.entries(p.marks)
+		.map(([k, v]) => (v > 0 ? MARK_LABEL[k]?.(v) : undefined))
+		.filter((x): x is string => !!x);
+	if (items.length === 0) return null;
+	return (
+		<div className="marks">
+			{items.map((t) => (
+				<div className="mark" key={t}>
+					{t}
+				</div>
+			))}
 		</div>
 	);
 }
@@ -620,6 +662,13 @@ function Actions({ view }: { view: GameView }) {
 		);
 	}
 
+	/**
+	 * 选牌 / 分配是全屏浮层（照抄 Inspect 的写法）：候选牌可能是别人手牌/装备区/
+	 * 判定区里的，Hand 组件根本画不出来，必须单独起一块地方展示。
+	 */
+	if (ask.kind === 'chooseCards') return <ChooseCardsPicker ask={ask} view={view} />;
+	if (ask.kind === 'distribute') return <DistributePicker ask={ask} view={view} />;
+
 	const recast = recastOptionFor(view, pickedOption);
 
 	return (
@@ -642,6 +691,122 @@ function Actions({ view }: { view: GameView }) {
 				{ask.cancelable && (
 					<button className="btn ghost" onClick={pass}>
 						{ask.kind === 'playPhase' ? '结束回合' : '取 消'}
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * chooseCards 的选牌浮层：过河拆桥/顺手牵羊/火攻/五谷丰登/司马懿反馈……所有
+ * "从若干候选牌里选几张"的技能共用这一套 UI。候选牌按 from+zone 分组展示成
+ * "谁的手牌/装备区/判定区"；unknown 的牌只画牌背，绝不去 view.cards 里取牌面——
+ * 服务端本来就没把这些条目下发给我们，这是防作弊边界，不是能不能拿到的问题。
+ */
+function ChooseCardsPicker({
+	ask,
+	view,
+}: {
+	ask: Extract<GameView['ask'], { kind: 'chooseCards' }>;
+	view: GameView;
+}) {
+	const { pickedCards, toggleCard, commit, pass } = useGame();
+	const ready = pickedCards.length >= ask.min && pickedCards.length <= ask.max;
+
+	const groups: Array<{ label: string; cards: typeof ask.candidates }> = [];
+	const index = new Map<string, number>();
+	for (const c of ask.candidates) {
+		const key = `${c.from ?? ''}:${c.zone ?? ''}`;
+		let i = index.get(key);
+		if (i === undefined) {
+			i = groups.length;
+			index.set(key, i);
+			// 没有 from 的是自己的牌或五谷丰登那种亮出来的公共牌，不特意加标题
+			const label = c.from ? `${nick(view, c.from)} 的${ZONE_CN[c.zone ?? ''] ?? ''}` : '';
+			groups.push({ label, cards: [] });
+		}
+		groups[i].cards.push(c);
+	}
+
+	return (
+		<div className="picker">
+			<div className="picker__title">{ask.prompt}</div>
+			<div className="choose-cards">
+				{groups.map((grp, i) => (
+					<div className="choose-cards__group" key={i}>
+						{grp.label && <div className="choose-cards__label">{grp.label}</div>}
+						<div className="choose-cards__row">
+							{grp.cards.map((c) => (
+								<CardFace
+									key={c.id}
+									card={c.unknown ? undefined : view.cards[c.id]}
+									className={pickedCards.includes(c.id) ? 'selected' : ''}
+									onClick={() => toggleCard(c.id)}
+								/>
+							))}
+						</div>
+					</div>
+				))}
+			</div>
+			<div className="btn-row">
+				<button className="btn" disabled={!ready} onClick={commit}>
+					确 定
+				</button>
+				{ask.cancelable && (
+					<button className="btn ghost" onClick={pass}>
+						取 消
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * distribute 的分配浮层（郭嘉遗计）：列出待分配的牌，每张牌下面一排角色按钮，
+ * 点一下分给谁；没点的牌服务端会按语义留给自己（见 skills/wei.ts 的 distributeCards）。
+ */
+function DistributePicker({
+	ask,
+	view,
+}: {
+	ask: Extract<GameView['ask'], { kind: 'distribute' }>;
+	view: GameView;
+}) {
+	const { pickedAssign, setAssign, commit, pass } = useGame();
+
+	return (
+		<div className="picker">
+			<div className="picker__title">{ask.prompt}</div>
+			<div className="distribute">
+				{ask.cards.map((id) => {
+					const assigned = pickedAssign.find((a) => a.card === id)?.to;
+					return (
+						<div className="distribute__row" key={id}>
+							<CardFace card={view.cards[id]} />
+							<div className="distribute__targets">
+								{ask.candidates.map((pid) => (
+									<button
+										key={pid}
+										className={`btn ghost distribute__btn${assigned === pid ? ' active' : ''}`}
+										onClick={() => setAssign(id, assigned === pid ? undefined : pid)}
+									>
+										{nick(view, pid)}
+									</button>
+								))}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+			<div className="btn-row">
+				<button className="btn" onClick={commit}>
+					确 定
+				</button>
+				{ask.cancelable && (
+					<button className="btn ghost" onClick={pass}>
+						取 消
 					</button>
 				)}
 			</div>
@@ -807,7 +972,7 @@ function LogPanel() {
 
 function Result({ view }: { view: GameView }) {
 	const won = view.finished!.winners.includes(view.you);
-	const { send, lobby, pid } = useGame();
+	const { send, lobby, pid, room } = useGame();
 	const isHost = lobby.find((p) => p.pid === pid)?.host ?? false;
 	return (
 		<div className="lobby" style={{ position: 'absolute', inset: 0, background: 'rgba(15,13,11,0.9)' }}>
@@ -831,16 +996,47 @@ function Result({ view }: { view: GameView }) {
 						</div>
 					))}
 				</div>
-				{isHost ? (
-					<button className="btn" onClick={() => send({ t: 'restart' })}>
-						再 来 一 局
+				<div className="btn-row" style={{ justifyContent: 'center', marginTop: '2vmin' }}>
+					{isHost ? (
+						<button className="btn" onClick={() => send({ t: 'restart' })}>
+							再 来 一 局
+						</button>
+					) : (
+						<div style={{ fontSize: '2vmin', color: 'var(--gold-300)' }}>等待房主开下一局…</div>
+					)}
+					<button className="btn ghost" onClick={() => exportRecord(room)}>
+						导出这局记录
 					</button>
-				) : (
-					<div style={{ fontSize: '2vmin', color: 'var(--gold-300)' }}>等待房主开下一局…</div>
-				)}
+				</div>
 			</div>
 		</div>
 	);
+}
+
+/**
+ * 结算后拉取只读的对局记录接口，触发一次 JSON 文件下载。
+ * 服务端只在 state.finished 之后才放行（见 room.ts 的 handleReplay），
+ * 这里不做任何权限判断——按钮本来就只在结算界面（B1 防作弊边界的另一侧）出现。
+ */
+function exportRecord(room: string): void {
+	fetch(`/api/room/${room}/replay`)
+		.then((r) => {
+			if (!r.ok) throw new Error(`导出失败（${r.status}）`);
+			return r.json();
+		})
+		.then((record) => {
+			const blob = new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `sgs-${room}-${Date.now()}.json`;
+			a.click();
+			URL.revokeObjectURL(url);
+		})
+		.catch((e) => {
+			console.error(e);
+			alert('导出失败，请稍后重试');
+		});
 }
 
 // ─────────────────────── 工具 ───────────────────────

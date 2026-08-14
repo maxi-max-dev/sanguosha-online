@@ -43,6 +43,15 @@ export default {
 			return env.ROOM.get(id).fetch(req);
 		}
 
+		// GET /api/room/:code/replay —— 只读对局记录导出（B1）。权限判断（进行中 403）
+		// 全在 RoomDO 里，这里只负责把请求路由到同一个 DO 实例。
+		const replay = url.pathname.match(/^\/api\/room\/([A-Z0-9]{4,8})\/replay$/i);
+		if (replay && req.method === 'GET') {
+			const code = replay[1].toUpperCase();
+			const id = env.ROOM.idFromName(code);
+			return env.ROOM.get(id).fetch(req);
+		}
+
 		return env.ASSETS.fetch(req);
 	},
 };

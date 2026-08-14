@@ -32,6 +32,8 @@ import {
 interface Env {
 	ROOM: DurableObjectNamespace;
 	ASSETS: Fetcher;
+	/** 仅测试用：缩短读秒等待，不设置时按 1 倍算，不影响线上行为。见 test/ 下的超时托管用例 */
+	TIMEOUT_SCALE?: string;
 }
 
 interface SockMeta {
@@ -49,6 +51,13 @@ interface Seat {
 
 const MIN_PLAYERS = 5;
 const MAX_PLAYERS = 8;
+
+function json(data: unknown, status: number): Response {
+	return new Response(JSON.stringify(data), {
+		status,
+		headers: { 'content-type': 'application/json; charset=utf-8' },
+	});
+}
 
 export class RoomDO implements DurableObject {
 	private game?: IdentityGame;
@@ -159,6 +168,9 @@ export class RoomDO implements DurableObject {
 	async fetch(req: Request): Promise<Response> {
 		const url = new URL(req.url);
 		if (req.headers.get('Upgrade') !== 'websocket') {
+			if (req.method === 'GET' && url.pathname.endsWith('/replay')) {
+				return this.handleReplay();
+			}
 			return new Response('expected websocket', { status: 426 });
 		}
 
@@ -170,6 +182,32 @@ export class RoomDO implements DurableObject {
 		// 用 hibernation 版的 accept：DO 可以在消息间隙被踢出内存而连接不断
 		this.ctx.acceptWebSocket(server);
 		return new Response(null, { status: 101, webSocket: client });
+	}
+
+	/**
+	 * 只读导出对局记录（B1）。
+	 *
+	 * 🔴 防作弊边界：GameRecord 含全员身份和手牌，对局进行中导出等于给所有人开天眼，
+	 * 所以只在 `state.finished` 之后才放行，进行中一律 403 —— 不为调试方便放宽。
+	 */
+	private async handleReplay(): Promise<Response> {
+		const seedStr = this.meta('seed');
+		const setupStr = this.meta('setup');
+		if (!seedStr || !setupStr) {
+			return json({ error: '本局还没开始' }, 404);
+		}
+
+		const g = await this.ensureGame();
+		if (!g || !g.state.finished) {
+			return json({ error: '对局进行中，结束后才能导出' }, 403);
+		}
+
+		const record: GameRecord = {
+			seed: Number(seedStr),
+			setup: JSON.parse(setupStr) as GameSetup,
+			decisions: this.loadDecisions(),
+		};
+		return json(record, 200);
 	}
 
 	async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
@@ -425,7 +463,10 @@ export class RoomDO implements DurableObject {
 			return;
 		}
 
-		this.deadline = Date.now() + ask.timeout * 1000;
+		// TIMEOUT_SCALE 只给测试用（缩短读秒好在自动化测试里跑超时托管），
+		// 不设置时 Number(undefined) 是 NaN，`|| 1` 落回 1 倍，线上行为不变。
+		const scale = Number(this.env.TIMEOUT_SCALE) || 1;
+		this.deadline = Date.now() + ask.timeout * 1000 * scale;
 		this.setMeta('deadline', String(this.deadline));
 		this.setMeta('deadlineSeq', String(ask.seq));
 		void this.ctx.storage.setAlarm(this.deadline);

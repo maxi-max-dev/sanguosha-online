@@ -50,6 +50,8 @@ interface State {
 	pickedCards: number[];
 	pickedTargets: string[];
 	pickedOption?: string;
+	/** distribute（郭嘉遗计）专用：每张牌分给了谁，没在这里出现就是留给自己 */
+	pickedAssign: Array<{ card: number; to: string }>;
 
 	setName(n: string): void;
 	connect(room: string): void;
@@ -59,6 +61,8 @@ interface State {
 	toggleCard(id: number): void;
 	toggleTarget(pid: string): void;
 	pickOption(id: string | undefined): void;
+	/** distribute：把一张牌分给 to；to 为 undefined 表示撤销分配（留给自己） */
+	setAssign(card: number, to: string | undefined): void;
 	/** 多选一：点了就直接提交，不再要一次"确定" */
 	pickAndCommitOption(id: string): void;
 	/** 直接提交一个出牌选项（重铸这类不需要再确认的动作） */
@@ -86,6 +90,7 @@ export const useGame = create<State>((set, get) => ({
 	chat: [],
 	pickedCards: [],
 	pickedTargets: [],
+	pickedAssign: [],
 
 	setName(n) {
 		localStorage.setItem('sgs.name', n);
@@ -135,6 +140,7 @@ export const useGame = create<State>((set, get) => ({
 						pickedCards: [],
 						pickedTargets: [],
 						pickedOption: undefined,
+						pickedAssign: [],
 					});
 					break;
 				case 'view':
@@ -146,7 +152,9 @@ export const useGame = create<State>((set, get) => ({
 							view: msg.view,
 							hint: msg.hint,
 							deadline: msg.deadline,
-							...(changed ? { pickedCards: [], pickedTargets: [], pickedOption: undefined } : {}),
+							...(changed
+								? { pickedCards: [], pickedTargets: [], pickedOption: undefined, pickedAssign: [] }
+								: {}),
 						};
 					});
 					break;
@@ -211,6 +219,14 @@ export const useGame = create<State>((set, get) => ({
 		set({ pickedOption: id, pickedTargets: [] });
 	},
 
+	setAssign(card, to) {
+		set((s) => ({
+			pickedAssign: to
+				? [...s.pickedAssign.filter((a) => a.card !== card), { card, to }]
+				: s.pickedAssign.filter((a) => a.card !== card),
+		}));
+	},
+
 	pickAndCommitPlay(optionId, targets) {
 		const s = get();
 		const ask = s.view?.ask;
@@ -228,7 +244,7 @@ export const useGame = create<State>((set, get) => ({
 	},
 
 	clearPick() {
-		set({ pickedCards: [], pickedTargets: [], pickedOption: undefined });
+		set({ pickedCards: [], pickedTargets: [], pickedOption: undefined, pickedAssign: [] });
 	},
 
 	commit() {
@@ -263,6 +279,9 @@ export const useGame = create<State>((set, get) => ({
 				break;
 			case 'chooseSuit':
 				send({ type: 'suit', suit: (s.pickedOption as any) ?? 'heart' });
+				break;
+			case 'distribute':
+				send({ type: 'distribute', assign: s.pickedAssign });
 				break;
 		}
 		s.clearPick();
