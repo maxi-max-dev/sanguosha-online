@@ -1087,6 +1087,46 @@ body {
 	to { transform: rotate(360deg); }
 }
 
+/* ─────────────────────── 矮屏（手机横屏）放大一档 ─────────────────────── */
+
+/**
+ * 所有尺寸以 vmin 为基准，在 16:9 的桌面上刚好，但手机横屏是 844×390（约 2.16:1），
+ * vmin 取的是高度，于是牌和按钮被整体压小、中间空出一大片。
+ * 这里按屏幕高度补偿：矮屏统一放大一档，顺便把触摸目标做大。
+ */
+@media (max-height: 520px) {
+	.general { width: 22vmin; }
+	.general.self { width: 27vmin; }
+	.general__name { font-size: 3vmin; }
+	.general__nick { font-size: 1.9vmin; bottom: 4.2vmin; }
+	.hp__bead { width: 1.9vmin; height: 1.9vmin; }
+	.general__hand { font-size: 2.1vmin; }
+	.identity { font-size: 1.9vmin; top: 4.8vmin; }
+	.general__faction { width: 3.6vmin; height: 3.6vmin; font-size: 2.3vmin; }
+	.equip { font-size: 1.6vmin; }
+
+	.card { width: 11vmin; }
+	.card__pip { font-size: 1.9vmin; }
+	.card__name { font-size: 1.9vmin; }
+	.hand { left: 30vmin; height: 19vmin; }
+	.hand .card { width: 13vmin; }
+	.hand .card__name { font-size: 2.2vmin; }
+	.hand__slot { margin-left: var(--overlap, -3vmin); }
+
+	.pile__stack { width: 7.5vmin; height: 10.5vmin; font-size: 3vmin; }
+	.pile__label { font-size: 1.8vmin; }
+
+	.actions { bottom: 21vmin; }
+	.skills { bottom: 21vmin; }
+	.prompt { font-size: 2.4vmin; max-width: 52vmin; }
+	.btn { font-size: 2.8vmin; min-width: 14vmin; padding: 1.3vmin 2.4vmin; }
+	.skill-btn { font-size: 2.3vmin; padding: 0.9vmin 1.6vmin; }
+
+	.log { font-size: 1.9vmin; width: 36vmin; top: 30vmin; max-height: 30vmin; }
+	.center__caption { font-size: 3vmin; }
+	.float { font-size: 4vmin; }
+}
+
 /* ─────────────────────── 竖屏提示 ─────────────────────── */
 
 .rotate-hint {
