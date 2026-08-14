@@ -397,13 +397,26 @@ export class RoomDO implements DurableObject {
 
 	// ─────────────────────── 超时托管 ───────────────────────
 
+	/** 当前读秒对应的请求序号。用来区分"新请求"和"同一个请求的又一次广播" */
+	private deadlineSeq = -1;
+
+	/**
+	 * 只有**换了新请求**才重排读秒。
+	 *
+	 * 这个方法挂在 pushState 里，而 pushState 每次广播都会调（有人重连、有人聊天、
+	 * 状态刷新都会触发）。早先无条件重置 deadline，等于每广播一次就给当前决策者续一次命 ——
+	 * 一个掉线的人可以把整局无限期卡住，而超时托管永远不会触发。
+	 */
 	private scheduleTimeout(): void {
 		const g = this.game;
 		const ask = g?.getPendingAsk();
 		if (!ask) {
 			this.deadline = 0;
+			this.deadlineSeq = -1;
 			return;
 		}
+		if (ask.seq === this.deadlineSeq && this.deadline > Date.now()) return;
+		this.deadlineSeq = ask.seq;
 		this.deadline = Date.now() + ask.timeout * 1000;
 		void this.ctx.storage.setAlarm(this.deadline);
 	}
@@ -413,6 +426,9 @@ export class RoomDO implements DurableObject {
 		if (!g) return;
 		const ask = g.getPendingAsk();
 		if (!ask) return;
+		// deadline 是内存态，DO 休眠一次就没了。醒来后不知道读秒走到哪，
+		// 宁可重排也不能直接替人做决定 —— 玩家可能刚点开手机正要出牌。
+		if (this.deadline === 0) return this.scheduleTimeout();
 		// 还没到点（可能是旧 alarm）就重排
 		if (Date.now() < this.deadline - 500) return this.scheduleTimeout();
 
