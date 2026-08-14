@@ -1620,3 +1620,22 @@ body {
 	.guide__tip { font-size: 1.9vmin; }
 	.guide-btn { width: 5.5vmin; height: 5.5vmin; font-size: 3vmin; }
 }
+
+/* 被邀请进来的人，先告诉他"你在哪、要干什么" */
+.lobby__invited {
+	margin: 1vmin 0 1.6vmin;
+	padding: 1vmin 1.4vmin;
+	border-radius: 0.5vmin;
+	background: rgba(201, 162, 39, 0.12);
+	border: 0.12vmin solid rgba(201, 162, 39, 0.45);
+	font-size: 1.9vmin;
+	line-height: 1.7;
+	color: var(--gold-100);
+}
+
+.lobby__invited b {
+	font-family: var(--font-title);
+	font-size: 2.6vmin;
+	letter-spacing: 0.3vmin;
+	color: var(--gold-200);
+}

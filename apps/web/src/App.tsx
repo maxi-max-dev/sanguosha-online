@@ -42,6 +42,8 @@ function Home() {
 	const [code, setCode] = useState(new URLSearchParams(location.search).get('r') ?? '');
 	const [busy, setBusy] = useState(false);
 	const [hint, setHint] = useState('');
+	// 房间码是从邀请链接带进来的，不是自己手敲的 —— 据此决定主按钮是谁
+	const invited = !!new URLSearchParams(location.search).get('r');
 	const nameRef = useRef<HTMLInputElement>(null);
 	const codeRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +82,13 @@ function Home() {
 		<div className="lobby">
 			<div className="lobby__panel">
 				<div className="lobby__title">三国杀</div>
+				{invited && (
+					<div className="lobby__invited">
+						有人邀请你加入房间 <b>{code}</b>
+						<br />
+						填个昵称就能进
+					</div>
+				)}
 				<input
 					ref={nameRef}
 					placeholder="你的昵称"
@@ -96,13 +105,32 @@ function Home() {
 					onKeyDown={(e) => e.key === 'Enter' && join()}
 				/>
 				<div className="hint">{hint || ' '}</div>
+				{/*
+				  主次按钮要跟着"你是怎么来的"走。
+				  朋友是点邀请链接来的（?r=XXXX），房间码已经填好，他要按的是「加入」——
+				  但金色主按钮一直是「开房」。按错就开出一个空房间，一个人干等，
+				  纳闷大家在哪。这是每个被邀请的人都会走的路，指错了代价很大。
+				*/}
 				<div className="btn-row" style={{ justifyContent: 'center' }}>
-					<button className="btn" onClick={create}>
-						开 房
-					</button>
-					<button className="btn ghost" onClick={join}>
-						加 入
-					</button>
+					{invited ? (
+						<>
+							<button className="btn" onClick={join}>
+								加 入 房 间
+							</button>
+							<button className="btn ghost" onClick={create}>
+								自己开房
+							</button>
+						</>
+					) : (
+						<>
+							<button className="btn" onClick={create}>
+								开 房
+							</button>
+							<button className="btn ghost" onClick={join}>
+								加 入
+							</button>
+						</>
+					)}
 				</div>
 			</div>
 		</div>
