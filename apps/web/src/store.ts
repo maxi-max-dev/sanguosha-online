@@ -95,6 +95,12 @@ export const useGame = create<State>((set, get) => ({
 	connect(room) {
 		const code = room.toUpperCase();
 		set({ room: code, error: undefined });
+		// 房间码要能挺过刷新和锁屏 —— 只存在内存里的话，手机息屏一次就出局了。
+		// 同时写进 URL，这样分享出去的链接和自己刷新走的是同一条路。
+		localStorage.setItem('sgs.room', code);
+		if (new URLSearchParams(location.search).get('r') !== code) {
+			history.replaceState(null, '', `/?r=${code}`);
+		}
 		ws?.close();
 
 		const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -174,6 +180,8 @@ export const useGame = create<State>((set, get) => ({
 
 	disconnect() {
 		set({ room: '', screen: 'home', view: undefined, lobby: [] });
+		localStorage.removeItem('sgs.room');
+		history.replaceState(null, '', '/');
 		clearInterval(heartbeat);
 		ws?.close();
 		ws = undefined;

@@ -6,10 +6,17 @@ export default function App() {
 	const screen = useGame((s) => s.screen);
 	const error = useGame((s) => s.error);
 
-	// 支持 /?r=XXXX 直接进房 —— 房主把链接丢群里，点开就进
+	/**
+	 * 开局自动接回房间。两个来源：
+	 *   · URL 的 ?r=XXXX —— 房主把链接丢群里，朋友点开就进
+	 *   · localStorage —— 自己刷新、手机息屏后回来，不能把人踢回首页
+	 * 断线重连本来就做好了（服务端按 pid 认座位），缺的只是"记得自己在哪个房间"。
+	 */
 	useEffect(() => {
-		const r = new URLSearchParams(location.search).get('r');
-		if (r && useGame.getState().name) useGame.getState().connect(r);
+		const s = useGame.getState();
+		if (!s.name) return;
+		const code = new URLSearchParams(location.search).get('r') || localStorage.getItem('sgs.room');
+		if (code) s.connect(code);
 	}, []);
 
 	return (
