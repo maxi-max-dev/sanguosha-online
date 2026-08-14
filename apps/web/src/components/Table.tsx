@@ -23,6 +23,7 @@ const PHASE_CN: Record<string, string> = {
 
 export default function Table() {
 	const view = useGame((s) => s.view);
+	const [inspect, setInspect] = useState<string | undefined>();
 	if (!view) return null;
 
 	const me = view.players.find((p) => p.id === view.you);
@@ -33,9 +34,15 @@ export default function Table() {
 		<div className="table">
 			<div className="opponents">
 				{others.map((p) => (
-					<Seat key={p.id} p={p} view={view} />
+					<Seat key={p.id} p={p} view={view} onInspect={setInspect} />
 				))}
 			</div>
+			{inspect && (
+				<Inspect
+					p={view.players.find((x) => x.id === inspect)!}
+					onClose={() => setInspect(undefined)}
+				/>
+			)}
 
 			<Pile view={view} />
 			<Center view={view} />
@@ -44,7 +51,7 @@ export default function Table() {
 			{me && (
 				<>
 					<div style={{ position: 'absolute', left: '2vmin', bottom: '1vmin', zIndex: 3 }}>
-						<Seat p={me} view={view} self />
+						<Seat p={me} view={view} self onInspect={setInspect} />
 					</div>
 					<Skills me={me} />
 					<Hand view={view} me={me} />
@@ -147,7 +154,17 @@ function orderOthers(view: GameView): PlayerView[] {
 
 // ─────────────────────── 席位 ───────────────────────
 
-function Seat({ p, view, self }: { p: PlayerView; view: GameView; self?: boolean }) {
+function Seat({
+	p,
+	view,
+	self,
+	onInspect,
+}: {
+	p: PlayerView;
+	view: GameView;
+	self?: boolean;
+	onInspect?: (id: string) => void;
+}) {
 	const { pickedTargets, toggleTarget } = useGame();
 	const ask = view.ask;
 
@@ -169,7 +186,12 @@ function Seat({ p, view, self }: { p: PlayerView; view: GameView; self?: boolean
 		.join(' ');
 
 	return (
-		<div className={cls} data-pid={p.id} onClick={() => selectable && toggleTarget(p.id)}>
+		<div
+			className={cls}
+			data-pid={p.id}
+			// 可选中时点击=指定目标；否则点击=查看这个武将的技能（公开信息）
+			onClick={() => (selectable ? toggleTarget(p.id) : p.general && onInspect?.(p.id))}
+		>
 			{art ? (
 				<img className="general__art" src={art} alt={g?.cn ?? p.general} draggable={false} />
 			) : (
@@ -463,6 +485,54 @@ function Actions({ view }: { view: GameView }) {
 					</button>
 				)}
 			</div>
+		</div>
+	);
+}
+
+/**
+ * 武将详情。点自己的牌看自己的技能，点别人的看别人的 —— 武将技能是公开信息，
+ * 桌上谁有什么本事本来就该人人可见。之前只有 title 提示，手机上根本没有 hover。
+ */
+function Inspect({ p, onClose }: { p: PlayerView; onClose: () => void }) {
+	const g = GENERALS[p.general];
+	if (!g) return null;
+	const art = generalArt(g.id);
+	return (
+		<div className="picker" onClick={onClose}>
+			<div className="picker__title">{p.nickname}</div>
+			<div className="picker__grid" onClick={(e) => e.stopPropagation()}>
+				<div className="pick" style={{ width: '42vmin', cursor: 'default' }}>
+					<div className="pick__art" style={{ height: '20vmin' }}>
+						{art && <img src={art} alt={g.cn} draggable={false} />}
+						<span className="pick__faction" data-f={g.faction}>
+							{FACTION_CN[g.faction]}
+						</span>
+					</div>
+					<div className="pick__body">
+						<div className="pick__head">
+							<span className="pick__name">{g.cn}</span>
+							<span className="pick__hp">
+								{Array.from({ length: p.maxHp }, (_, i) => (
+									<i key={i} style={i >= p.hp ? { filter: 'grayscale(1) brightness(0.4)' } : undefined} />
+								))}
+							</span>
+						</div>
+						{p.skills.map((sid) => {
+							const s = ALL_SKILLS[sid];
+							if (!s) return null;
+							return (
+								<div className="pick__skill" key={sid}>
+									<b>{s.cn}</b>
+									<span>{s.desc}</span>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			</div>
+			<button className="btn ghost" onClick={onClose}>
+				关 闭
+			</button>
 		</div>
 	);
 }
