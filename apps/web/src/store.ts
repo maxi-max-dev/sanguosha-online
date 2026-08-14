@@ -138,7 +138,19 @@ export const useGame = create<State>((set, get) => ({
 		};
 
 		sock.onmessage = (e) => {
-			const msg = JSON.parse(e.data as string) as ServerMsg;
+			// 这里的抛错到不了 React 错误边界（事件回调不在渲染期），
+			// 不兜住的话一条坏报文就能让整个连接静默失聪：后续消息照收，
+			// 但状态再也不更新，界面卡在上一帧，玩家完全看不出发生了什么。
+			try {
+				handleMessage(e.data as string);
+			} catch (err) {
+				console.error('处理服务端消息失败', err, e.data);
+				set({ error: '收到一条无法处理的消息，界面可能不同步，建议刷新' });
+			}
+		};
+
+		const handleMessage = (raw: string) => {
+			const msg = JSON.parse(raw) as ServerMsg;
 			switch (msg.t) {
 				case 'lobby':
 					// 顺手清掉上一局的残留：开下一局时服务端会推 lobby，
