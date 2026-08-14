@@ -397,27 +397,37 @@ export class RoomDO implements DurableObject {
 
 	// ─────────────────────── 超时托管 ───────────────────────
 
-	/** 当前读秒对应的请求序号。用来区分"新请求"和"同一个请求的又一次广播" */
-	private deadlineSeq = -1;
-
 	/**
-	 * 只有**换了新请求**才重排读秒。
+	 * 只有**换了新请求**才重排读秒，而且读秒要落盘。
 	 *
-	 * 这个方法挂在 pushState 里，而 pushState 每次广播都会调（有人重连、有人聊天、
-	 * 状态刷新都会触发）。早先无条件重置 deadline，等于每广播一次就给当前决策者续一次命 ——
-	 * 一个掉线的人可以把整局无限期卡住，而超时托管永远不会触发。
+	 * 两件事一起解决：
+	 * 1. 这个方法挂在 pushState 里，pushState 每次广播都会调（有人重连、有人聊天…）。
+	 *    无条件重置 deadline 等于每广播一次就给当前决策者续一次命 —— 掉线的人能把
+	 *    整局无限期卡住。所以按 seq 判断是不是同一个请求。
+	 * 2. deadline 不能只放内存。DO 随时会休眠，醒来时内存全空；如果这时选择"不知道
+	 *    就重排"，而它又可能再次休眠，就变成无限重排、永远不超时 —— 比第 1 条更糟。
+	 *    落进 SQLite 才能真正跨休眠。
 	 */
 	private scheduleTimeout(): void {
 		const g = this.game;
 		const ask = g?.getPendingAsk();
 		if (!ask) {
 			this.deadline = 0;
-			this.deadlineSeq = -1;
+			this.setMeta('deadline', '0');
+			this.setMeta('deadlineSeq', '-1');
 			return;
 		}
-		if (ask.seq === this.deadlineSeq && this.deadline > Date.now()) return;
-		this.deadlineSeq = ask.seq;
+
+		const storedSeq = Number(this.meta('deadlineSeq') ?? '-1');
+		const storedAt = Number(this.meta('deadline') ?? '0');
+		if (ask.seq === storedSeq && storedAt > Date.now()) {
+			this.deadline = storedAt;
+			return;
+		}
+
 		this.deadline = Date.now() + ask.timeout * 1000;
+		this.setMeta('deadline', String(this.deadline));
+		this.setMeta('deadlineSeq', String(ask.seq));
 		void this.ctx.storage.setAlarm(this.deadline);
 	}
 
@@ -426,11 +436,19 @@ export class RoomDO implements DurableObject {
 		if (!g) return;
 		const ask = g.getPendingAsk();
 		if (!ask) return;
-		// deadline 是内存态，DO 休眠一次就没了。醒来后不知道读秒走到哪，
-		// 宁可重排也不能直接替人做决定 —— 玩家可能刚点开手机正要出牌。
-		if (this.deadline === 0) return this.scheduleTimeout();
-		// 还没到点（可能是旧 alarm）就重排
-		if (Date.now() < this.deadline - 500) return this.scheduleTimeout();
+
+		// 读秒从 SQLite 读，不能读内存 —— DO 可能刚从休眠里醒来，内存是空的
+		const due = Number(this.meta('deadline') ?? '0');
+		const seq = Number(this.meta('deadlineSeq') ?? '-1');
+		this.deadline = due;
+
+		// 落盘的读秒对不上当前请求，说明状态漂了，重排一次
+		if (seq !== ask.seq || due === 0) return this.scheduleTimeout();
+		// 还没到点（旧 alarm 或者被别的写入提前唤醒），重排到真正的截止时刻
+		if (Date.now() < due - 500) {
+			void this.ctx.storage.setAlarm(due);
+			return;
+		}
 
 		await g.submitAuto();
 		this.persistDecisions();
