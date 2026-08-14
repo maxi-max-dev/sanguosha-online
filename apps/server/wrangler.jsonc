@@ -1,0 +1,23 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "sgs",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-01-15",
+	"compatibility_flags": ["nodejs_compat"],
+
+	// 前端构建产物直接由 Worker 托管，一个域名搞定，不需要另外挂 Pages
+	"assets": {
+		"directory": "../web/dist",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application"
+	},
+
+	"durable_objects": {
+		"bindings": [{ "name": "ROOM", "class_name": "RoomDO" }]
+	},
+
+	// 免费版只支持 SQLite 后端的 DO，所以这里必须用 new_sqlite_classes
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
+
+	"observability": { "enabled": true }
+}

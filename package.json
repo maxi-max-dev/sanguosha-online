@@ -1,0 +1,20 @@
+{
+  "name": "sgs",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.9.0",
+  "scripts": {
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --filter @sgs/web dev",
+    "dev:server": "pnpm --filter @sgs/server dev",
+    "build": "pnpm --filter @sgs/web build",
+    "deploy": "pnpm --filter @sgs/web build && pnpm --filter @sgs/server deploy",
+    "soak": "pnpm --filter @sgs/engine soak"
+  },
+  "devDependencies": {
+    "sharp": "^0.35.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

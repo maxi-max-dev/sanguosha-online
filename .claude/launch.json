@@ -1,0 +1,11 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "sgs",
+			"runtimeExecutable": "pnpm",
+			"runtimeArgs": ["--filter", "@sgs/server", "exec", "wrangler", "dev", "--port", "8787"],
+			"port": 8787
+		}
+	]
+}

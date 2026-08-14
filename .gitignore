@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+*.log
+.DS_Store
+.dev.vars
+
+# 美术资源：体积大且与代码解耦，单独管理（见 assets/README.md）
+apps/web/public/art/
+tools/.cache/

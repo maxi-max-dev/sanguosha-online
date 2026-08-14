@@ -1,0 +1,62 @@
+/**
+ * 设计令牌。三国杀手游的视觉语言拆下来其实只有三层：
+ *   1. 深褐近黑的底 —— 不是纯黑，是带暖调的墨色，纯黑会显得廉价
+ *   2. 烫金描边 —— 所有"重要"的东西都镶一圈金，金色要有明暗渐变才像烫金而不是黄边
+ *   3. 羊皮卡面 —— 米黄偏暖，红黑花色，边缘压暗
+ * 所有颜色只在这里定义，组件里一律用变量，换皮肤只改这个文件。
+ */
+
+:root {
+	/* ── 底色：墨 ── */
+	--ink-900: #0f0d0b;
+	--ink-800: #17130f;
+	--ink-700: #211a14;
+	--ink-600: #2e241b;
+	--ink-500: #3d3025;
+
+	/* ── 烫金 ── */
+	--gold-100: #f6e3ac;
+	--gold-200: #e8c86a;
+	--gold-300: #c9a227;
+	--gold-400: #9a7b1c;
+	--gold-500: #6b5413;
+	/* 烫金的关键是渐变，不是单色 */
+	--gold-plate: linear-gradient(160deg, var(--gold-100) 0%, var(--gold-300) 45%, var(--gold-500) 100%);
+	--gold-edge: linear-gradient(180deg, var(--gold-200), var(--gold-400));
+
+	/* ── 羊皮卡面 ── */
+	--paper-100: #f3e7cd;
+	--paper-200: #e6d5b2;
+	--paper-300: #d2bd93;
+	--paper-edge: #8a7550;
+
+	/* ── 语义色 ── */
+	--blood: #b3261e;
+	--blood-dim: #6d1712;
+	--jade: #3f7d5a;
+	--suit-red: #b3261e;
+	--suit-black: #201c19;
+
+	/* 势力 */
+	--faction-wei: #4a6f9c;
+	--faction-shu: #a8443a;
+	--faction-wu: #3f7d5a;
+	--faction-qun: #6b6257;
+
+	/* 身份 */
+	--identity-lord: #d4af37;
+	--identity-loyalist: #c0563f;
+	--identity-rebel: #2f4d7a;
+	--identity-spy: #4a3a6b;
+
+	/* ── 字号 / 间距：以 vmin 为基准，让整张牌桌随屏幕等比缩放 ── */
+	--u: 1vmin;
+	--font-title: 'STKaiti', 'KaiTi', 'Kaiti SC', 'STSong', serif;
+	--font-ui: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+
+	/* ── 阴影 ── */
+	--shadow-card: 0 0.6vmin 1.6vmin rgba(0, 0, 0, 0.55);
+	--shadow-lift: 0 1.6vmin 3vmin rgba(0, 0, 0, 0.6);
+	--glow-gold: 0 0 1.2vmin rgba(232, 200, 106, 0.55);
+	--glow-active: 0 0 1.8vmin rgba(232, 200, 106, 0.85);
+}
