@@ -68,8 +68,12 @@ export interface RespondAsk extends AskBase {
 	need: string;
 	/** 是"使用"还是"打出"。桃/酒是使用，闪/无懈是打出 */
 	mode: 'use' | 'respond';
-	/** 触发这次响应的牌（前端展示"XX对你使用了【杀】"） */
-	trigger?: { source?: string; use: CardUse };
+	/**
+	 * 触发这次响应的牌（前端展示"XX对你使用了【杀】"）。
+	 * target 是这张牌当前正在结算的对象 —— 问【无懈可击】时必须带上，
+	 * 否则应答方（人或 AI）根本不知道自己在救谁。
+	 */
+	trigger?: { source?: string; use: CardUse; target?: string };
 	/** 可用的响应选项（含转化技，如龙胆把杀当闪） */
 	options: PlayOption[];
 }

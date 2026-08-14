@@ -166,9 +166,16 @@ function chooseVictim(g: Game, me: PlayerState, candidates: string[], rng: Rng):
 
 	if (!lord) return weakest(pool);
 
-	// 反贼：多数时候压主公，但留三成去清理身边的威胁，避免全员无脑集火
+	/**
+	 * 反贼：压主公，但集火强度要随场上人数递减。
+	 * 8 人局有 4 个反贼，人人 70% 直扑主公时等于每轮 2.8 次攻击砸在同一个人身上，
+	 * 三个守方补不回来 —— 这是 8 人局反贼胜率虚高的结构性来源。
+	 * 真人局里反贼也要清忠臣、也会互相试探，这里用人数把集火摊薄。
+	 */
 	if (me.identity === 'rebel') {
-		if (pool.includes(lord.id) && rng.next() < 0.7) return lord.id;
+		const rebels = Math.max(1, g.alivePlayers().length - 3);
+		const focus = Math.min(0.7, 1.6 / rebels);
+		if (pool.includes(lord.id) && rng.next() < focus) return lord.id;
 		return weakest(pool.filter((id) => id !== lord.id)) ?? lord.id;
 	}
 
@@ -232,9 +239,25 @@ function respond(g: Game, ask: Extract<AskRequest, { kind: 'respond' }>, rng: Rn
 				: { type: 'pass' };
 		}
 
-		case 'wuxie':
-			// 无懈是稀缺牌，别见锦囊就无懈
-			return rng.next() < 0.3 ? play(ask.options[0]) : { type: 'pass' };
+		case 'wuxie': {
+			// 无懈是稀缺牌，关键是"救谁"而不是"救不救"。
+			// 之前一律 30% 概率瞎无懈，等于忠臣完全不会保主公 ——
+			// 这是 8 人局反贼胜率偏高的一个具体来源。
+			const victim = ask.trigger?.target;
+			if (!victim) return rng.next() < 0.25 ? play(ask.options[0]) : { type: 'pass' };
+
+			const lord = g.state.players.find((p) => p.identityRevealed && p.identity === 'lord');
+			const hittingLord = !!lord && victim === lord.id;
+			const hittingMe = victim === me.id;
+
+			// 忠臣：打主公的锦囊必挡；主公：打自己的必挡
+			if (hittingLord && (me.identity === 'loyalist' || me.id === lord!.id)) return play(ask.options[0]);
+			// 反贼/内奸：主公吃锦囊是好事，绝不挡
+			if (hittingLord) return { type: 'pass' };
+			// 打到自己头上，多数时候挡
+			if (hittingMe) return rng.next() < 0.75 ? play(ask.options[0]) : { type: 'pass' };
+			return rng.next() < 0.15 ? play(ask.options[0]) : { type: 'pass' };
+		}
 
 		case 'sha':
 			// 决斗里的杀必须跟，不跟就吃伤害

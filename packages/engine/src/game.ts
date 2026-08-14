@@ -1054,7 +1054,7 @@ export class Game {
 					prompt: negated
 						? `是否对【无懈可击】使用【无懈可击】？`
 						: `是否对 ${targetName} 的【${this.cardDef(ev.use.name).cn}】使用【无懈可击】？`,
-					trigger: { source: ev.source, use: ev.use },
+					trigger: { source: ev.source, use: ev.use, target },
 					options: opts,
 					cancelable: true,
 					timeout: 20,
