@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGame } from './store.js';
 import Table from './components/Table.js';
 
@@ -27,11 +27,25 @@ function Home() {
 	const { name, setName, connect } = useGame();
 	const [code, setCode] = useState(new URLSearchParams(location.search).get('r') ?? '');
 	const [busy, setBusy] = useState(false);
+	const [hint, setHint] = useState('');
+	const nameRef = useRef<HTMLInputElement>(null);
+	const codeRef = useRef<HTMLInputElement>(null);
 
-	const canGo = name.trim().length > 0;
+	/**
+	 * 两个按钮都**不置灰**。置灰的按钮和这里的"次要按钮"样式都是暗的，
+	 * 玩家分不清"坏了"还是"我还缺点什么" —— 与其让他猜，不如让他点得动，
+	 * 然后直接把光标送到缺的那一栏。
+	 */
+	function need(ref: React.RefObject<HTMLInputElement | null>, msg: string): boolean {
+		setHint(msg);
+		ref.current?.focus();
+		setTimeout(() => setHint(''), 2600);
+		return false;
+	}
 
 	async function create() {
-		if (!canGo) return;
+		if (busy) return;
+		if (!name.trim()) return void need(nameRef, '先起个昵称吧');
 		setBusy(true);
 		try {
 			const r = await fetch('/api/room', { method: 'POST' });
@@ -42,31 +56,37 @@ function Home() {
 		}
 	}
 
+	function join() {
+		if (!name.trim()) return void need(nameRef, '先起个昵称吧');
+		if (code.trim().length < 4) return void need(codeRef, '要填朋友给你的 4 位房间码');
+		connect(code.trim());
+	}
+
 	return (
 		<div className="lobby">
 			<div className="lobby__panel">
 				<div className="lobby__title">三国杀</div>
 				<input
+					ref={nameRef}
 					placeholder="你的昵称"
 					value={name}
 					maxLength={12}
 					onChange={(e) => setName(e.target.value)}
 				/>
 				<input
+					ref={codeRef}
 					placeholder="房间码（加入他人房间）"
 					value={code}
 					maxLength={8}
 					onChange={(e) => setCode(e.target.value.toUpperCase())}
+					onKeyDown={(e) => e.key === 'Enter' && join()}
 				/>
-				<div className="btn-row" style={{ justifyContent: 'center', marginTop: '2vmin' }}>
-					<button className="btn" disabled={!canGo || busy} onClick={create}>
+				<div className="hint">{hint || ' '}</div>
+				<div className="btn-row" style={{ justifyContent: 'center' }}>
+					<button className="btn" onClick={create}>
 						开 房
 					</button>
-					<button
-						className="btn ghost"
-						disabled={!canGo || code.length < 4}
-						onClick={() => connect(code)}
-					>
+					<button className="btn ghost" onClick={join}>
 						加 入
 					</button>
 				</div>

@@ -650,11 +650,37 @@ body {
 	cursor: default;
 }
 
+/**
+ * 次要按钮。边框和文字都用亮金 —— 早先用 gold-400 的暗金，结果和 :disabled 的
+ * 置灰态几乎一样，玩家看不出"这个能点"还是"这个坏了"。
+ */
 .btn.ghost {
 	background: rgba(15, 13, 11, 0.85);
-	border: 0.15vmin solid var(--gold-400);
+	border: 0.22vmin solid var(--gold-200);
 	color: var(--gold-100);
-	box-shadow: var(--shadow-card);
+	box-shadow: var(--shadow-card), inset 0 0 1.2vmin rgba(232, 200, 106, 0.14);
+}
+
+.btn.ghost:active {
+	background: rgba(38, 30, 20, 0.95);
+}
+
+/* 禁用态要一眼看穿：压暗之外再降透明度，和上面的次要按钮拉开距离 */
+.btn:disabled,
+.btn.ghost:disabled {
+	filter: grayscale(0.9) brightness(0.45);
+	opacity: 0.55;
+	box-shadow: none;
+	cursor: default;
+}
+
+/* 缺什么就提示什么 */
+.hint {
+	min-height: 2.6vmin;
+	margin: 0.6vmin 0 1.2vmin;
+	font-size: 1.8vmin;
+	color: var(--gold-200);
+	text-shadow: 0 0 0.6vmin rgba(0, 0, 0, 0.8);
 }
 
 /* 技能按钮：竖排在左下，贴着自己的武将牌 */
