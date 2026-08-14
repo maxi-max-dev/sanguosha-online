@@ -97,7 +97,8 @@ function Seat({ p, view, self }: { p: PlayerView; view: GameView; self?: boolean
 			)}
 			<div className="general__scrim" />
 
-			{g && <div className="general__name">{g.cn}</div>}
+			{/* 还没选将时 general 为空，此时不能渲染名条，否则只剩一条渐变底色的金色斜边 */}
+			{g?.cn && <div className="general__name">{g.cn}</div>}
 			{g && (
 				<div className="general__faction" data-f={p.faction}>
 					{FACTION_CN[p.faction]}
@@ -319,6 +320,27 @@ function Actions({ view }: { view: GameView }) {
 
 	const ready = isReady(view, pickedCards, pickedTargets, pickedOption);
 
+	/**
+	 * 多选一（选将、刚烈二选一…）是**原子**选择：没有可以逐步累积的东西，
+	 * 所以点一下就该定下来，不该再要一次"确定"。之前分两步，而且"确定"还画在
+	 * 选项上面，读起来是反的 —— 玩家选完武将就卡住不动了。
+	 */
+	if (ask.kind === 'chooseOption') {
+		return (
+			<div className="actions">
+				<div className="prompt">{ask.prompt}</div>
+				<OptionRow ask={ask} />
+				{ask.cancelable && (
+					<div className="btn-row">
+						<button className="btn ghost" onClick={pass}>
+							取 消
+						</button>
+					</div>
+				)}
+			</div>
+		);
+	}
+
 	return (
 		<div className="actions">
 			<div className="prompt">{ask.prompt}</div>
@@ -332,21 +354,20 @@ function Actions({ view }: { view: GameView }) {
 					</button>
 				)}
 			</div>
-			{ask.kind === 'chooseOption' && <OptionRow ask={ask} />}
 		</div>
 	);
 }
 
 function OptionRow({ ask }: { ask: Extract<GameView['ask'], { kind: 'chooseOption' }> }) {
-	const { pickOption, pickedOption } = useGame();
+	const { pickAndCommitOption } = useGame();
 	return (
-		<div className="btn-row">
+		<div className="btn-row option-row">
 			{ask.options.map((o) => (
 				<button
 					key={o.id}
-					className={`btn ${pickedOption === o.id ? '' : 'ghost'}`}
+					className="btn ghost"
 					disabled={o.disabled}
-					onClick={() => pickOption(o.id)}
+					onClick={() => pickAndCommitOption(o.id)}
 				>
 					{o.label}
 				</button>

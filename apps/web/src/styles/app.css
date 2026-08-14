@@ -683,6 +683,13 @@ body {
 	text-shadow: 0 0 0.6vmin rgba(0, 0, 0, 0.8);
 }
 
+/* 多选一的选项：点一下即生效，做得比确认按钮更显眼、更好按 */
+.option-row .btn {
+	min-width: 13vmin;
+	font-size: 2.4vmin;
+	padding: 1.2vmin 2vmin;
+}
+
 /* 技能按钮：竖排在左下，贴着自己的武将牌 */
 .skills {
 	position: absolute;

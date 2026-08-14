@@ -59,6 +59,8 @@ interface State {
 	toggleCard(id: number): void;
 	toggleTarget(pid: string): void;
 	pickOption(id: string | undefined): void;
+	/** 多选一：点了就直接提交，不再要一次"确定" */
+	pickAndCommitOption(id: string): void;
 	clearPick(): void;
 	/** 把当前选择提交上去 */
 	commit(): void;
@@ -184,6 +186,14 @@ export const useGame = create<State>((set, get) => ({
 
 	pickOption(id) {
 		set({ pickedOption: id, pickedTargets: [] });
+	},
+
+	pickAndCommitOption(id) {
+		const s = get();
+		const ask = s.view?.ask;
+		if (ask?.kind !== 'chooseOption') return;
+		s.send({ t: 'decide', seq: ask.seq, payload: { type: 'option', optionId: id } });
+		s.clearPick();
 	},
 
 	clearPick() {

@@ -309,8 +309,13 @@ export class RoomDO implements DurableObject {
 
 		const ask = g.getPendingAsk();
 		if (!ask) return this.send(ws, { t: 'error', msg: '现在不需要你决策' });
-		// seq 校验同时挡住了重复提交和"手快点了上一个请求的按钮"
-		if (ask.seq !== seq) return;
+		// seq 校验挡住重复提交和"手快点了上一个请求的按钮"。
+		// 不能静默丢弃 —— 那样玩家点了按钮什么都不会发生，只能干等超时。
+		// 把最新状态推回去，客户端会拿到正确的 seq 重新渲染。
+		if (ask.seq !== seq) {
+			await this.pushState();
+			return;
+		}
 		if (ask.who !== meta.pid) return this.send(ws, { t: 'error', msg: '还没轮到你' });
 
 		await g.submit(meta.pid, payload);
