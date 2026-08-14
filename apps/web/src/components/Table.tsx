@@ -430,6 +430,11 @@ function Actions({ view }: { view: GameView }) {
 	 * 选项上面，读起来是反的 —— 玩家选完武将就卡住不动了。
 	 */
 	if (ask.kind === 'chooseOption') {
+		// 选将要看得见立绘、体力和技能说明 —— 只给三个名字按钮，
+		// 不熟三国杀的朋友第一步就懵了
+		const isGeneralPick = ask.options.every((o) => GENERALS[o.id]);
+		if (isGeneralPick) return <GeneralPicker ask={ask} />;
+
 		return (
 			<div className="actions">
 				<div className="prompt">{ask.prompt}</div>
@@ -457,6 +462,52 @@ function Actions({ view }: { view: GameView }) {
 						{ask.kind === 'playPhase' ? '结束回合' : '取 消'}
 					</button>
 				)}
+			</div>
+		</div>
+	);
+}
+
+/** 选将面板：立绘 + 势力 + 体力 + 技能全文，点一下即选定 */
+function GeneralPicker({ ask }: { ask: Extract<GameView['ask'], { kind: 'chooseOption' }> }) {
+	const { pickAndCommitOption } = useGame();
+	return (
+		<div className="picker">
+			<div className="picker__title">{ask.prompt}</div>
+			<div className="picker__grid">
+				{ask.options.map((o) => {
+					const g = GENERALS[o.id];
+					const art = generalArt(g.id);
+					return (
+						<button key={o.id} className="pick" onClick={() => pickAndCommitOption(o.id)}>
+							<div className="pick__art">
+								{art && <img src={art} alt={g.cn} draggable={false} />}
+								<span className="pick__faction" data-f={g.faction}>
+									{FACTION_CN[g.faction]}
+								</span>
+							</div>
+							<div className="pick__body">
+								<div className="pick__head">
+									<span className="pick__name">{g.cn}</span>
+									<span className="pick__hp">
+										{Array.from({ length: g.maxHp }, (_, i) => (
+											<i key={i} />
+										))}
+									</span>
+								</div>
+								{g.skills.map((sid) => {
+									const s = ALL_SKILLS[sid];
+									if (!s) return null;
+									return (
+										<div className="pick__skill" key={sid}>
+											<b>{s.cn}</b>
+											<span>{s.desc}</span>
+										</div>
+									);
+								})}
+							</div>
+						</button>
+					);
+				})}
 			</div>
 		</div>
 	);
