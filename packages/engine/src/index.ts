@@ -9,3 +9,4 @@ export * from './registry.js';
 export * from './modes/identity.js';
 export * from './view.js';
 export * from './wire.js';
+export * as ai from './ai/simple.js';

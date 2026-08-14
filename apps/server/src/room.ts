@@ -12,10 +12,12 @@
  */
 
 import {
+	ai,
 	IdentityGame,
 	GameOver,
 	optionProvider,
 	registry,
+	Rng,
 	askHint,
 	buildView,
 	type ClientMsg,
@@ -54,6 +56,8 @@ export class RoomDO implements DurableObject {
 	private persisted = 0;
 	/** 当前 ask 的超时截止时间（毫秒时间戳） */
 	private deadline = 0;
+	/** 机器人专用随机流。与 g.rng 完全隔离（原因见 driveBots 注释） */
+	private botRng = new Rng(Math.floor(Math.random() * 0x7fffffff));
 
 	constructor(
 		private ctx: DurableObjectState,
@@ -333,8 +337,13 @@ export class RoomDO implements DurableObject {
 	// ─────────────────────── 机器人补位 ───────────────────────
 
 	/**
-	 * 机器人和掉线托管走同一条路：都是"服务端替这个座位做一个安全的默认决策"。
-	 * 这样机器人不需要独立的 AI 实现，也不可能做出规则不允许的动作。
+	 * 机器人决策。走 `ai.decide()` 而不是 `submitAuto()` 的安全默认值 ——
+	 * 后者对出牌阶段永远返回"跳过"，机器人一整局一张牌不出，纯送人头。
+	 *
+	 * 掉线的真人仍然走 `submitAuto()`（见 `alarm()`）：替别人乱出牌比什么都不做更糟。
+	 *
+	 * 注意这里给 AI 的是一条**独立**的随机流，绝不能用 `g.rng` —— 重放时 AI 不参与，
+	 * 用了游戏自己的随机流会让重放后的状态和实时对局静默错位。
 	 */
 	private async driveBots(): Promise<void> {
 		const g = this.game;
@@ -346,7 +355,16 @@ export class RoomDO implements DurableObject {
 		while (!g.state.finished && guard++ < 500) {
 			const ask = g.getPendingAsk();
 			if (!ask || !bots.has(ask.who)) break;
-			await g.submitAuto();
+			let payload;
+			try {
+				payload = ai.decide(g, ask, this.botRng);
+			} catch (e) {
+				// AI 出错不能把整局卡死，退回安全默认值
+				console.error('机器人决策异常，退回默认值', e);
+				await g.submitAuto();
+				continue;
+			}
+			await g.submit(ask.who, payload);
 		}
 		this.persistDecisions();
 		await this.pushState();

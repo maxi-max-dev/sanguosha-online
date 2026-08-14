@@ -10,6 +10,7 @@
  *   pnpm --filter @sgs/engine soak 1000 6     # 1000 局，每局 6 人
  */
 
+import { decide } from '../ai/simple.js';
 import { GameOver, type Game } from '../game.js';
 import { IdentityGame } from '../modes/identity.js';
 import { optionProvider } from '../options.js';
@@ -93,7 +94,13 @@ export interface SoakResult {
 	failures: Array<{ seed: number; error: string; decisions: Decision[] }>;
 }
 
-export async function soak(games: number, playerCount: number, baseSeed = 1): Promise<SoakResult> {
+export async function soak(
+	games: number,
+	playerCount: number,
+	baseSeed = 1,
+	/** 'random' 铺开规则空间找崩溃；'ai' 检验机器人打得像不像样 */
+	driver: 'random' | 'ai' = 'random',
+): Promise<SoakResult> {
 	const res: SoakResult = {
 		games: 0,
 		crashed: 0,
@@ -135,7 +142,9 @@ export async function soak(games: number, playerCount: number, baseSeed = 1): Pr
 			while (!g.state.finished && steps++ < 8000) {
 				const ask = g.getPendingAsk();
 				if (!ask) break;
-				await g.submit(ask.who, randomDecision(ask, rng));
+				// AI 用的是这里的 rng，和 g.rng 是两条独立的流 —— 不能混
+				const payload = driver === 'ai' ? decide(g, ask, rng) : randomDecision(ask, rng);
+				await g.submit(ask.who, payload);
 			}
 
 			if (steps >= 8000) throw new Error('对局未在 8000 步内结束，疑似死循环');
@@ -167,11 +176,12 @@ const isMain = process.argv[1]?.endsWith('soak.ts');
 if (isMain) {
 	const games = Number(process.argv[2] ?? 200);
 	const players = Number(process.argv[3] ?? 5);
+	const driver = (process.argv[4] === 'ai' ? 'ai' : 'random') as 'random' | 'ai';
 	const t0 = Date.now();
-	const r = await soak(games, players);
+	const r = await soak(games, players, 1, driver);
 	const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
-	console.log(`\n跑了 ${r.games}/${games} 局（${players} 人），耗时 ${secs}s`);
+	console.log(`\n跑了 ${r.games}/${games} 局（${players} 人，${driver === 'ai' ? '机器人对局' : '随机决策'}），耗时 ${secs}s`);
 	console.log(`平均每局 ${r.avgDecisions} 个决策 / ${r.avgRounds} 轮`);
 	console.log(`崩溃 ${r.crashed} 局，平局 ${r.drawn} 局`);
 	console.log('\n胜负分布：');
