@@ -190,6 +190,8 @@ export class RoomDO implements DurableObject {
 					return await this.onBot(ws, true);
 				case 'removeBot':
 					return await this.onBot(ws, false);
+				case 'restart':
+					return await this.onRestart(ws);
 				case 'decide':
 					return await this.onDecide(ws, msg.seq, msg.payload);
 				case 'chat':
@@ -302,6 +304,29 @@ export class RoomDO implements DurableObject {
 			const last = seats.filter((s) => s.bot).pop();
 			if (last) this.ctx.storage.sql.exec(`DELETE FROM seats WHERE pid = ?`, last.pid);
 		}
+		await this.pushState();
+	}
+
+	/**
+	 * 开下一局：只清牌局（种子 + 决策日志），**保留座位**。
+	 * 朋友一晚上要连打好几局，每局都重新建房、重发房间码是劝退的。
+	 */
+	private async onRestart(ws: WebSocket): Promise<void> {
+		const meta = this.sockMeta(ws);
+		if (!meta) return;
+		if (!this.seats().find((s) => s.pid === meta.pid)?.host) {
+			return this.send(ws, { t: 'error', msg: '只有房主能开下一局' });
+		}
+		const g = this.game;
+		if (g && !g.state.finished) {
+			return this.send(ws, { t: 'error', msg: '本局还没结束' });
+		}
+
+		this.ctx.storage.sql.exec(`DELETE FROM decisions`);
+		this.ctx.storage.sql.exec(`DELETE FROM meta WHERE k IN ('seed', 'setup')`);
+		this.game = undefined;
+		this.persisted = 0;
+		this.deadline = 0;
 		await this.pushState();
 	}
 

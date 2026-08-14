@@ -26,6 +26,8 @@ export type ClientMsg =
 	/** 房主加/减机器人补位（人不齐时凑够 5 人开局） */
 	| { t: 'addBot' }
 	| { t: 'removeBot' }
+	/** 房主开下一局：清掉牌局回到大厅，座位和人不散 */
+	| { t: 'restart' }
 	/** 提交决策。seq 必须与当前请求一致，否则服务端拒绝（防重复提交和乱序） */
 	| { t: 'decide'; seq: number; payload: DecisionPayload }
 	| { t: 'chat'; text: string }

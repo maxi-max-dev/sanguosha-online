@@ -114,7 +114,20 @@ export const useGame = create<State>((set, get) => ({
 			const msg = JSON.parse(e.data as string) as ServerMsg;
 			switch (msg.t) {
 				case 'lobby':
-					set({ screen: 'lobby', lobby: msg.players, canStart: msg.canStart });
+					// 顺手清掉上一局的残留：开下一局时服务端会推 lobby，
+					// 不清的话 view.finished 还挂着，结算界面会闪回来
+					set({
+						screen: 'lobby',
+						lobby: msg.players,
+						canStart: msg.canStart,
+						view: undefined,
+						hint: undefined,
+						deadline: undefined,
+						log: [],
+						pickedCards: [],
+						pickedTargets: [],
+						pickedOption: undefined,
+					});
 					break;
 				case 'view':
 					// 换了新请求就清空上一轮的选择，否则会把旧的选中态带进新一轮

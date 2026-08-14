@@ -577,6 +577,8 @@ function LogPanel() {
 
 function Result({ view }: { view: GameView }) {
 	const won = view.finished!.winners.includes(view.you);
+	const { send, lobby, pid } = useGame();
+	const isHost = lobby.find((p) => p.pid === pid)?.host ?? false;
 	return (
 		<div className="lobby" style={{ position: 'absolute', inset: 0, background: 'rgba(15,13,11,0.9)' }}>
 			<div className="lobby__panel">
@@ -599,9 +601,13 @@ function Result({ view }: { view: GameView }) {
 						</div>
 					))}
 				</div>
-				<button className="btn" onClick={() => location.reload()}>
-					再 来 一 局
-				</button>
+				{isHost ? (
+					<button className="btn" onClick={() => send({ t: 'restart' })}>
+						再 来 一 局
+					</button>
+				) : (
+					<div style={{ fontSize: '2vmin', color: 'var(--gold-300)' }}>等待房主开下一局…</div>
+				)}
 			</div>
 		</div>
 	);
