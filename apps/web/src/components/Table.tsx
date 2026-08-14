@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView, type PlayOption } from '@sgs/engine';
-import { cardArt, generalArt, rankText, SUIT_SYMBOL } from '../art.js';
+import { cardArt, generalArt, rankText, SUIT_CN, SUIT_SYMBOL } from '../art.js';
 import { play, useSound } from '../sound.js';
 import { cardSelectable, optionsForCard, useGame } from '../store.js';
 
@@ -703,6 +703,9 @@ function Actions({ view }: { view: GameView }) {
 	 * 选牌 / 分配是全屏浮层（照抄 Inspect 的写法）：候选牌可能是别人手牌/装备区/
 	 * 判定区里的，Hand 组件根本画不出来，必须单独起一块地方展示。
 	 */
+	// 花色四选一（反间）和多选一一样是原子选择，点一下就定，不再要一次"确定"
+	if (ask.kind === 'chooseSuit') return <ChooseSuitPicker ask={ask} />;
+
 	if (ask.kind === 'chooseCards') return <ChooseCardsPicker ask={ask} view={view} />;
 	if (ask.kind === 'distribute') return <DistributePicker ask={ask} view={view} />;
 	if (ask.kind === 'arrange') return <ArrangePicker ask={ask} view={view} />;
@@ -1020,6 +1023,40 @@ function OptionRow({ ask }: { ask: Extract<GameView['ask'], { kind: 'chooseOptio
 					{o.label}
 				</button>
 			))}
+		</div>
+	);
+}
+
+/**
+ * chooseSuit 的花色选择（反间）：四种花色服务端都在 ask.options 里下发了，
+ * 照着渲染就行 —— 前端不判断"这个花色能不能选"。按钮做成小牌面的样子（纸底 +
+ * 红黑花色），判色沿用 CardFace 里那条约定，别让玩家去猜这几个按钮是什么。
+ */
+function ChooseSuitPicker({ ask }: { ask: Extract<GameView['ask'], { kind: 'chooseSuit' }> }) {
+	const { pickAndCommitSuit, pass } = useGame();
+	return (
+		<div className="actions">
+			<div className="prompt">{ask.prompt}</div>
+			<div className="btn-row suit-row">
+				{ask.options.map((suit) => (
+					<button
+						key={suit}
+						className="suit-btn"
+						data-c={suit === 'heart' || suit === 'diamond' ? 'red' : 'black'}
+						onClick={() => pickAndCommitSuit(suit)}
+					>
+						<span className="suit-btn__pip">{SUIT_SYMBOL[suit]}</span>
+						<span className="suit-btn__name">{SUIT_CN[suit]}</span>
+					</button>
+				))}
+			</div>
+			{ask.cancelable && (
+				<div className="btn-row">
+					<button className="btn ghost" onClick={pass}>
+						取 消
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -31,6 +31,14 @@ export const SUIT_SYMBOL: Record<string, string> = {
 	club: '♣',
 };
 
+/** 花色的中文名。牌面上地方小只画符号，但让玩家「选一种花色」时要写清楚 */
+export const SUIT_CN: Record<string, string> = {
+	heart: '红桃',
+	diamond: '方块',
+	spade: '黑桃',
+	club: '梅花',
+};
+
 export function rankText(n: number): string {
 	return n === 1 ? 'A' : n === 11 ? 'J' : n === 12 ? 'Q' : n === 13 ? 'K' : String(n);
 }

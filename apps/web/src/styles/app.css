@@ -586,6 +586,18 @@ body {
 
 /* ─────────────────────── 手牌区（底部扇形） ─────────────────────── */
 
+/**
+ * z-index 必须高于 .actions 和 .skills（都是 4）。
+ *
+ * 这里有个层叠上下文的坑：`.card-menu`（点牌后弹出的"用法"菜单）嵌在 .hand 内部，
+ * 它自己写 z-index:10 是**没用的** —— .hand 是定位元素且有 z-index，已经建立了
+ * 层叠上下文，整棵子树对外统一按 .hand 的层级参与排序。所以菜单再高也只是
+ * "在手牌区内部很高"，对外仍然是 3，被 4 的操作区和技能栏盖死。
+ *
+ * 抬高 .hand 本身是安全的：手牌区的盒子占 bottom 1–16vmin（矮屏 1–20vmin），
+ * 而 .actions/.skills 从 17.5vmin（矮屏 21vmin）起，两者的盒子并不重叠，
+ * 只有浮出的菜单会越界 —— 抬高只是让菜单赢，视觉上没有别的变化。
+ */
 .hand {
 	position: absolute;
 	bottom: 1vmin;
@@ -595,7 +607,7 @@ body {
 	display: flex;
 	justify-content: center;
 	align-items: flex-end;
-	z-index: 3;
+	z-index: 5;
 }
 
 .hand__slot {
@@ -1058,6 +1070,54 @@ body {
 	padding: 1.2vmin 2vmin;
 }
 
+/**
+ * 花色四选一（反间）。做成小牌面：纸底 + 红黑花色，和牌上的判色是同一套约定，
+ * 不然黑花色印在深色按钮上等于看不见。
+ */
+.suit-row {
+	gap: 1.2vmin;
+}
+
+.suit-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.3vmin;
+	width: 9vmin;
+	padding: 1vmin 0;
+	border-radius: 0.5vmin;
+	background: linear-gradient(165deg, var(--paper-100), var(--paper-200) 60%, var(--paper-300));
+	border: 0.2vmin solid var(--paper-edge);
+	box-shadow: var(--shadow-card);
+	cursor: pointer;
+	transition: filter 0.14s ease, transform 0.1s ease;
+}
+
+.suit-btn:hover {
+	filter: brightness(1.06);
+}
+
+.suit-btn:active {
+	transform: translateY(0.2vmin);
+	filter: brightness(0.92);
+}
+
+.suit-btn__pip {
+	font-size: 3.6vmin;
+	line-height: 1;
+}
+
+.suit-btn[data-c='red'] .suit-btn__pip { color: var(--suit-red); }
+.suit-btn[data-c='black'] .suit-btn__pip { color: var(--suit-black); }
+
+.suit-btn__name {
+	font-family: var(--font-title);
+	font-size: 1.5vmin;
+	letter-spacing: 0.1vmin;
+	color: #4a3a22;
+}
+
 /* 技能按钮：竖排在左下，贴着自己的武将牌 */
 .skills {
 	position: absolute;
@@ -1390,6 +1450,10 @@ body {
 	}
 	.skill-btn { font-size: 2.3vmin; min-height: 9vmin; padding: 0.9vmin 1.8vmin; }
 	.option-row .btn { min-width: 18vmin; font-size: 3vmin; }
+	/* 同样按 ~44px 的触摸目标兜底 */
+	.suit-btn { width: 13vmin; min-height: 11.5vmin; }
+	.suit-btn__pip { font-size: 5vmin; }
+	.suit-btn__name { font-size: 2.1vmin; }
 
 	.log { font-size: 1.9vmin; width: 36vmin; top: 30vmin; max-height: 30vmin; }
 	.center__caption { font-size: 3vmin; }

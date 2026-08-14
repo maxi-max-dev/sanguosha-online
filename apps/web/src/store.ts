@@ -14,6 +14,7 @@ import type {
 	LogEntry,
 	PlayOption,
 	ServerMsg,
+	Suit,
 } from '@sgs/engine';
 
 /** 玩家身份：随机生成一次存本地，断线重连靠它认回座位 */
@@ -76,6 +77,8 @@ interface State {
 	setCardMenu(id: number | undefined): void;
 	/** 多选一：点了就直接提交，不再要一次"确定" */
 	pickAndCommitOption(id: string): void;
+	/** 花色四选一（反间）：同样是原子选择，点了即提交 */
+	pickAndCommitSuit(suit: Suit): void;
 	clearPick(): void;
 	/** 把当前选择提交上去 */
 	commit(): void;
@@ -288,6 +291,14 @@ export const useGame = create<State>((set, get) => ({
 		s.clearPick();
 	},
 
+	pickAndCommitSuit(suit) {
+		const s = get();
+		const ask = s.view?.ask;
+		if (ask?.kind !== 'chooseSuit') return;
+		s.send({ t: 'decide', seq: ask.seq, payload: { type: 'suit', suit } });
+		s.clearPick();
+	},
+
 	clearPick() {
 		set({ pickedCards: [], pickedTargets: [], pickedOption: undefined, pickedAssign: [], cardMenu: undefined });
 	},
@@ -323,7 +334,9 @@ export const useGame = create<State>((set, get) => ({
 				send({ type: 'option', optionId: s.pickedOption ?? ask.options[0].id });
 				break;
 			case 'chooseSuit':
-				send({ type: 'suit', suit: (s.pickedOption as any) ?? 'heart' });
+				// 花色走 pickAndCommitSuit 点一下就提交，不经过这里；
+				// 留个兜底只为把 switch 写全，别再把 pickedOption（存的是 option/牌 id）当花色用
+				send({ type: 'suit', suit: ask.options[0] });
 				break;
 			case 'distribute':
 				send({ type: 'distribute', assign: s.pickedAssign });
