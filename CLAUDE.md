@@ -48,6 +48,9 @@ packages/engine/          纯 TS 规则引擎，零运行时依赖，可脱离 C
     skills/               标准包 40 个技能 + 装备技能
     generals.ts           25 将数值表（与 noname 官方数据核对过）
     modes/identity.ts     身份局：分身份、选将、死亡奖惩、胜负判定
+    modes/duel.ts         1v1 单挑：各带 3 将、阵亡换将、三将尽出即负
+    ai/simple.ts          机器人（启发式，只读公开信息）
+    cards/desc.ts         牌的效果说明与身份目标（面向玩家的文案）
     registry.ts           把上面这些拼成引擎需要的 Registry
     wire.ts               客户端 ↔ 服务端报文类型（web 和 server 共用）
     tools/soak.ts         ★ 无头随机对局压测（验收主力工具）
@@ -121,15 +124,16 @@ tools/art/fetch-art.mjs   美术抓取脚本
 
 ```bash
 pnpm install
-pnpm --filter @sgs/engine test        # 42 项单测
-pnpm soak 500 8                       # 500 局 8 人无头随机对局
+pnpm test                             # 51 项单测 + 10 项 DO 端到端
+pnpm soak 500 8                       # 500 局 8 人身份局
+pnpm --filter @sgs/engine soak 500 2 random duel   # 500 局单挑
 ```
 
 `soak` 是主力工具：用随机决策把规则空间反复跑穿。**崩溃时它会打印出那一局的
 `seed` 和完整决策日志** —— 拿这两样构造一个 `GameRecord` 就能精确重现现场，
 不需要"我也遇到过但复现不了"。
 
-改完引擎至少跑 `pnpm soak 500 5` 和 `pnpm soak 500 8`，零崩溃才算过。
+改完引擎至少跑 `pnpm soak 500 5`、`pnpm soak 500 8` 和单挑那条，零崩溃才算过。
 
 ---
 
@@ -202,9 +206,11 @@ node tools/art/fetch-art.mjs
   用 `pnpm soak 500 8 ai` 看机器人对局的胜负分布。
   **掉线托管不走 AI**，仍用 `submitAuto()` 的安全默认值 —— 替别人乱出牌比什么都不做更糟。
   改 AI 时注意：**绝不能用 `g.rng`**，必须传独立随机流，否则重放会静默错位（原因见文件头注释）。
-- 只有身份局。1v1、国战等要加新的 `Game` 子类 —— 引擎核心与模式无关，
-  模式层只管开局布置、死亡奖惩、胜负判定，照着 `modes/identity.ts` 写。
-- 前端没有出牌动画（只有卡牌进出场的淡入），战报是纯文字。
+- 已有身份局和 1v1 单挑。再加新模式（国战等）写新的 `Game` 子类即可 —— 引擎核心
+  与模式无关。`modes/duel.ts` 是个好样板：它靠覆写 `die()` 实现"阵亡换将"，
+  **`game.ts` 一行没改**，所以身份局完全不受影响。
+- 前端已有：出牌飞行动画、伤害/回血飘字、音效、开局引导、牌的效果说明。
+  还没有的：聊天 UI（协议里有 `chat` 报文，界面没做）、武将台词。
 
 ---
 
