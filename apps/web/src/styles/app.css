@@ -1482,3 +1482,41 @@ body {
 		display: grid;
 	}
 }
+
+/* 选中牌时显示的效果说明。面向没玩过三国杀的人 —— 决策的那一刻就把话说清楚，
+   而不是让他去别处翻规则 */
+.card-desc {
+	max-width: 46vmin;
+	padding: 0.7vmin 1.2vmin;
+	border-radius: 0.4vmin;
+	background: rgba(15, 13, 11, 0.9);
+	border-left: 0.35vmin solid var(--gold-300);
+	font-size: 1.6vmin;
+	line-height: 1.65;
+	color: var(--paper-200);
+	text-align: left;
+}
+
+.card-desc b {
+	color: var(--gold-100);
+	font-family: var(--font-title);
+	font-weight: 400;
+	margin-right: 0.4vmin;
+}
+
+/* 武将详情里的身份目标：看到「反」也得知道自己该干什么 */
+.pick__goal {
+	padding: 0.7vmin 1vmin;
+	margin-bottom: 0.6vmin;
+	border-radius: 0.4vmin;
+	background: rgba(201, 162, 39, 0.12);
+	border: 0.12vmin solid rgba(201, 162, 39, 0.4);
+	font-size: 1.55vmin;
+	line-height: 1.6;
+	color: var(--gold-100);
+}
+
+@media (max-height: 520px) {
+	.card-desc { font-size: 1.9vmin; max-width: 52vmin; }
+	.pick__goal { font-size: 1.8vmin; }
+}

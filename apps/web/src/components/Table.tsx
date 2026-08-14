@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView, type PlayOption } from '@sgs/engine';
+import {
+	ALL_SKILLS,
+	CARD_DESC,
+	CARDS,
+	GENERALS,
+	IDENTITY_GOAL,
+	type Card,
+	type GameView,
+	type PlayerView,
+	type PlayOption,
+} from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_CN, SUIT_SYMBOL } from '../art.js';
 import { play, useSound } from '../sound.js';
 import { cardSelectable, optionsForCard, useGame } from '../store.js';
@@ -710,9 +720,23 @@ function Actions({ view }: { view: GameView }) {
 	if (ask.kind === 'distribute') return <DistributePicker ask={ask} view={view} />;
 	if (ask.kind === 'arrange') return <ArrangePicker ask={ask} view={view} />;
 
+	// 选中一张牌时把"这张牌是干什么的"直接摆出来。
+	// 没玩过三国杀的人看到【兵粮寸断】是纯靠猜的，而这一步正好是他要做决定的时刻
+	const pickedName =
+		(ask.kind === 'playPhase' || ask.kind === 'respond') && pickedOption
+			? ask.options.find((o) => o.id === pickedOption)?.name
+			: undefined;
+	const pickedDesc = pickedName ? CARD_DESC[pickedName] : undefined;
+
 	return (
 		<div className="actions">
 			<div className="prompt">{ask.prompt}</div>
+			{pickedDesc && (
+				<div className="card-desc">
+					<b>【{CARDS[pickedName!]?.cn ?? pickedName}】</b>
+					{pickedDesc}
+				</div>
+			)}
 			<div className="btn-row">
 				<button className="btn" disabled={!ready} onClick={commit}>
 					确 定
@@ -943,6 +967,9 @@ function Inspect({ p, onClose }: { p: PlayerView; onClose: () => void }) {
 								))}
 							</span>
 						</div>
+						{p.identity && IDENTITY_GOAL[p.identity] && (
+							<div className="pick__goal">{IDENTITY_GOAL[p.identity]}</div>
+						)}
 						{p.skills.map((sid) => {
 							const s = ALL_SKILLS[sid];
 							if (!s) return null;
