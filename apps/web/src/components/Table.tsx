@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView } from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_SYMBOL } from '../art.js';
 import { cardSelectable, optionForCard, useGame } from '../store.js';
@@ -53,9 +53,89 @@ export default function Table() {
 			)}
 
 			<Timer />
+			<Floats view={view} />
 			{view.finished && <Result view={view} />}
 		</div>
 	);
+}
+
+/**
+ * 伤害/回血/技能的飘字，锚在当事人的座位上。
+ *
+ * 没有这个的话，别人对你出杀只是中间冒出一张牌，掉没掉血、掉了几点全靠自己盯血条 ——
+ * 牌桌上同时有 5~8 个人时根本跟不上。飘字是最低成本的"刚刚发生了什么"。
+ */
+function Floats({ view }: { view: GameView }) {
+	const log = useGame((s) => s.log);
+	const [items, setItems] = useState<Array<{ key: number; x: number; y: number; kind: string; text: string }>>([]);
+	// 只处理没见过的日志条目；服务端每次推的是最近 40 条，会大量重复
+	const seen = useRef(-1);
+
+	useEffect(() => {
+		if (log.length === 0) return;
+		const fresh = log.filter((e) => e.t > seen.current);
+		if (fresh.length === 0) return;
+		seen.current = log[log.length - 1].t;
+
+		const spawned: typeof items = [];
+		for (const e of fresh) {
+			const f = floatFor(e, view);
+			if (!f) continue;
+			const el = document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(f.who)}"]`);
+			if (!el) continue;
+			const r = el.getBoundingClientRect();
+			spawned.push({
+				key: e.t * 1000 + spawned.length,
+				x: r.left + r.width / 2,
+				y: r.top + r.height * 0.42,
+				kind: f.kind,
+				text: f.text,
+			});
+		}
+		if (spawned.length === 0) return;
+
+		setItems((prev) => [...prev, ...spawned]);
+		const keys = new Set(spawned.map((s) => s.key));
+		setTimeout(() => setItems((prev) => prev.filter((i) => !keys.has(i.key))), 1200);
+	}, [log, view]);
+
+	return (
+		<div className="floats">
+			{items.map((i) => (
+				<div key={i.key} className={`float ${i.kind}`} style={{ left: i.x, top: i.y }}>
+					{i.text}
+				</div>
+			))}
+		</div>
+	);
+}
+
+function floatFor(
+	e: { kind: string; [k: string]: unknown },
+	view: GameView,
+): { who: string; kind: string; text: string } | null {
+	switch (e.kind) {
+		case 'damage': {
+			const n = e.amount as number;
+			const nat = e.nature === 'fire' ? '🔥' : e.nature === 'thunder' ? '⚡' : '';
+			return { who: e.target as string, kind: 'damage', text: `${nat}-${n}` };
+		}
+		case 'loseHp':
+			return { who: e.target as string, kind: 'damage', text: `-${e.amount as number}` };
+		case 'recover':
+			return { who: e.target as string, kind: 'recover', text: `+${e.amount as number}` };
+		case 'skill': {
+			const s = ALL_SKILLS[e.skill as string];
+			return s ? { who: e.who as string, kind: 'skill', text: s.cn } : null;
+		}
+		case 'dying':
+			return { who: e.who as string, kind: 'damage', text: '濒死' };
+		case 'wuxie':
+			return { who: e.who as string, kind: 'skill', text: '无懈可击' };
+		default:
+			void view;
+			return null;
+	}
 }
 
 function orderOthers(view: GameView): PlayerView[] {
@@ -89,7 +169,7 @@ function Seat({ p, view, self }: { p: PlayerView; view: GameView; self?: boolean
 		.join(' ');
 
 	return (
-		<div className={cls} onClick={() => selectable && toggleTarget(p.id)}>
+		<div className={cls} data-pid={p.id} onClick={() => selectable && toggleTarget(p.id)}>
 			{art ? (
 				<img className="general__art" src={art} alt={g?.cn ?? p.general} draggable={false} />
 			) : (
@@ -183,15 +263,39 @@ function Pile({ view }: { view: GameView }) {
 	);
 }
 
+/**
+ * 中央区。有牌正在结算时展示"谁 → 对谁 → 用了什么"，否则退回展示弃牌堆顶。
+ * 之前不加区分地把弃牌堆画在正中间，看着像"这些牌正在生效"，其实早结算完了。
+ */
 function Center({ view }: { view: GameView }) {
-	const cards = view.processing.length ? view.processing : view.discardTop.slice(-3);
+	const log = useGame((s) => s.log);
+	const playing = view.processing.length > 0;
+	const cards = playing ? view.processing : view.discardTop.slice(-3);
+
+	// 最近一条 use 事件就是当前正在结算的那张
+	const lastUse = playing
+		? [...log].reverse().find((e) => e.kind === 'use') as
+				| { source: string; name: string; targets?: string[] }
+				| undefined
+		: undefined;
+
+	const caption = lastUse
+		? `${nick(view, lastUse.source)}　【${CARDS[lastUse.name]?.cn ?? lastUse.name}】${
+				lastUse.targets?.length
+					? `　→　${lastUse.targets.map((t) => nick(view, t)).join('、')}`
+					: ''
+			}`
+		: '';
+
 	return (
 		<div className="center">
-			<div className="center__cards">
+			{caption && <div className="center__caption">{caption}</div>}
+			<div className={`center__cards${playing ? '' : ' idle'}`}>
 				{cards.map((id) => (
 					<CardFace key={id} card={view.cards[id]} />
 				))}
 			</div>
+			{!playing && cards.length > 0 && <div className="center__label">弃牌堆</div>}
 		</div>
 	);
 }

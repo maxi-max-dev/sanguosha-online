@@ -389,6 +389,25 @@ body {
 	color: var(--gold-100);
 	text-shadow: 0 0 1vmin rgba(0, 0, 0, 0.9), 0 0.3vmin 0.5vmin #000;
 	letter-spacing: 0.3vmin;
+	padding: 0.5vmin 1.6vmin;
+	border-radius: 0.4vmin;
+	background: rgba(15, 13, 11, 0.72);
+	border: 0.12vmin solid rgba(201, 162, 39, 0.45);
+	white-space: nowrap;
+	animation: play-in 0.2s ease-out;
+}
+
+/* 弃牌堆压暗缩小，和"正在结算"明显区分开 */
+.center__cards.idle .card {
+	transform: scale(0.78);
+	filter: brightness(0.5) saturate(0.7);
+	animation: none;
+}
+
+.center__label {
+	font-size: 1.4vmin;
+	color: var(--gold-400);
+	letter-spacing: 0.4vmin;
 }
 
 /* 牌堆计数 */
