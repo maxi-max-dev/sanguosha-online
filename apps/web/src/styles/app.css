@@ -1675,3 +1675,20 @@ body {
 	.spectating { font-size: 2.8vmin; }
 	.spectating span { font-size: 1.9vmin; }
 }
+
+/* 术语表：审计出来这几个词在界面上出现几十次却从没定义过。
+   对老手是空气，对新手是墙 */
+.guide__glossary {
+	margin-top: 2vmin;
+	padding-top: 1.4vmin;
+	border-top: 0.12vmin solid rgba(201, 162, 39, 0.25);
+	text-align: left;
+}
+
+.guide__glossary .guide__row b {
+	flex-basis: 8vmin;
+}
+
+@media (max-height: 520px) {
+	.guide__glossary .guide__row b { flex-basis: 9.5vmin; }
+}
