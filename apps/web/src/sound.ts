@@ -79,8 +79,12 @@ function unlock(): void {
 
 if (typeof window !== 'undefined') {
 	const onFirstGesture = () => unlock();
-	window.addEventListener('pointerdown', onFirstGesture, { once: true, capture: true });
-	window.addEventListener('keydown', onFirstGesture, { once: true, capture: true });
+	// 多挂几个事件是因为并非所有环境都发 pointerdown：部分安卓 WebView、
+	// 无障碍工具、以及程序化触发的交互只会产生 click。漏掉就一路静音，
+	// 而且是那种"没报错但就是没声音"的沉默失败。
+	for (const ev of ['pointerdown', 'touchend', 'click', 'keydown'] as const) {
+		window.addEventListener(ev, onFirstGesture, { once: true, capture: true });
+	}
 }
 
 /** 播放一个音效；静音、没解锁、没这个音效、还没解码完，都是直接跳过而不是报错 */
