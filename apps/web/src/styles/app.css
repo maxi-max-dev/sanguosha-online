@@ -1520,3 +1520,103 @@ body {
 	.card-desc { font-size: 1.9vmin; max-width: 52vmin; }
 	.pick__goal { font-size: 1.8vmin; }
 }
+
+/* ─────────────────────── 开局引导 ─────────────────────── */
+
+/* 常驻的「?」：新手随时能把规则调出来，老手当它不存在 */
+.guide-btn {
+	position: absolute;
+	right: 2vmin;
+	top: 1.5vmin;
+	width: 4vmin;
+	height: 4vmin;
+	border-radius: 50%;
+	font-size: 2.4vmin;
+	font-family: var(--font-title);
+	color: var(--gold-100);
+	background: rgba(15, 13, 11, 0.85);
+	border: 0.18vmin solid var(--gold-300);
+	cursor: pointer;
+	z-index: 6;
+}
+
+.guide-btn:active { background: rgba(38, 30, 20, 0.95); }
+
+.guide {
+	width: min(94vw, 92vmin);
+	padding: 2.4vmin 2.8vmin;
+	border-radius: 1vmin;
+	background: linear-gradient(170deg, var(--ink-700), var(--ink-900));
+	border: 0.22vmin solid var(--gold-400);
+	box-shadow: var(--shadow-lift);
+	text-align: center;
+}
+
+/* 身份目标是这个面板里最重要的一句话，用身份色描边 */
+.guide__goal {
+	padding: 1.4vmin 1.8vmin;
+	margin-bottom: 2vmin;
+	border-radius: 0.6vmin;
+	font-size: 2.2vmin;
+	line-height: 1.7;
+	color: var(--paper-100);
+	background: rgba(15, 13, 11, 0.7);
+	border-left: 0.5vmin solid var(--gold-300);
+	text-align: left;
+}
+
+.guide__goal[data-i='lord'] { border-left-color: var(--identity-lord); }
+.guide__goal[data-i='loyalist'] { border-left-color: var(--identity-loyalist); }
+.guide__goal[data-i='rebel'] { border-left-color: var(--identity-rebel); }
+.guide__goal[data-i='spy'] { border-left-color: var(--identity-spy); }
+
+.guide__cols {
+	display: flex;
+	gap: 3vmin;
+	text-align: left;
+}
+
+.guide__cols > div { flex: 1; }
+
+.guide__h {
+	font-family: var(--font-title);
+	font-size: 2vmin;
+	color: var(--gold-200);
+	margin-bottom: 0.8vmin;
+	letter-spacing: 0.2vmin;
+}
+
+.guide__row {
+	display: flex;
+	gap: 0.8vmin;
+	font-size: 1.6vmin;
+	line-height: 1.9;
+	color: var(--paper-200);
+}
+
+.guide__row b {
+	flex: 0 0 7vmin;
+	color: var(--gold-100);
+	font-family: var(--font-title);
+	font-weight: 400;
+}
+
+.guide__tip {
+	margin: 2vmin 0 1.6vmin;
+	padding-top: 1.4vmin;
+	border-top: 0.12vmin solid rgba(201, 162, 39, 0.25);
+	font-size: 1.7vmin;
+	line-height: 1.9;
+	color: var(--paper-300);
+}
+
+.guide__tip b { color: var(--gold-200); font-weight: 400; }
+
+@media (max-height: 520px) {
+	.guide { padding: 2vmin; }
+	.guide__goal { font-size: 2.4vmin; }
+	.guide__row { font-size: 1.9vmin; }
+	.guide__row b { flex-basis: 8.5vmin; }
+	.guide__tip { font-size: 1.9vmin; }
+	.guide-btn { width: 5.5vmin; height: 5.5vmin; font-size: 3vmin; }
+}

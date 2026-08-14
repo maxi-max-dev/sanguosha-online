@@ -11,6 +11,7 @@ import {
 	type PlayOption,
 } from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_CN, SUIT_SYMBOL } from '../art.js';
+import { Onboarding } from './Onboarding.js';
 import { play, useSound } from '../sound.js';
 import { cardSelectable, optionsForCard, useGame } from '../store.js';
 
@@ -96,6 +97,7 @@ export default function Table() {
 			<Floats view={view} />
 			<SoundEffects view={view} />
 			<SoundToggle />
+			<Onboarding view={view} />
 			{view.finished && <Result view={view} />}
 		</div>
 	);
