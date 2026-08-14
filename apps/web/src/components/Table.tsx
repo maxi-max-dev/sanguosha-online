@@ -62,9 +62,12 @@ export default function Table() {
 	const me = view.players.find((p) => p.id === view.you);
 	// 从自己的下家开始顺时针排，这样每个人看到的相对位置都符合"我在下、下家在左"的直觉
 	const others = orderOthers(view);
+	// 单挑只有一个对手：身份局那套"对手环绕顶部"在这里退化成一个人孤零零偏在一侧，
+	// 不像对局。2 人时改成正对面——对手贴顶部居中，自己贴底部居中，见下面 self 的定位
+	const duel = view.players.length === 2;
 
 	return (
-		<div className="table">
+		<div className={`table${duel ? ' table--duel' : ''}`}>
 			<div className="opponents">
 				{others.map((p) => (
 					<Seat key={p.id} p={p} view={view} onInspect={setInspect} />
@@ -73,6 +76,7 @@ export default function Table() {
 			{inspect && (
 				<Inspect
 					p={view.players.find((x) => x.id === inspect)!}
+					mode={view.mode}
 					onClose={() => setInspect(undefined)}
 				/>
 			)}
@@ -83,7 +87,15 @@ export default function Table() {
 
 			{me && (
 				<>
-					<div style={{ position: 'absolute', left: '2vmin', bottom: '1vmin', zIndex: 3 }}>
+					<div
+						style={{
+							position: 'absolute',
+							left: duel ? '50%' : '2vmin',
+							bottom: '1vmin',
+							transform: duel ? 'translateX(-50%)' : undefined,
+							zIndex: 3,
+						}}
+					>
 						<Seat p={me} view={view} self onInspect={setInspect} />
 					</div>
 					<Skills me={me} />
@@ -102,6 +114,7 @@ export default function Table() {
 			<Timer />
 			<FlyingCards view={view} />
 			<Floats view={view} />
+			<SwitchGeneralBanner view={view} />
 			<SoundEffects view={view} />
 			<SoundToggle />
 			<Onboarding view={view} />
@@ -262,6 +275,38 @@ function floatFor(
 }
 
 /**
+ * 单挑换将的过场提示：这是本局最重要的一次状态跃迁（一条命没了），
+ * 塞在角落的战报文字行太容易被忽略，所以单独起一块居中大字压屏幕中央报一下。
+ * 写法跟 Floats 一样是"游标记录已处理到哪条"，避免服务端重推同一条日志时重复弹。
+ */
+function SwitchGeneralBanner({ view }: { view: GameView }) {
+	const log = useGame((s) => s.log);
+	const [banner, setBanner] = useState<{ key: number; text: string } | null>(null);
+	const seen = useRef(-1);
+
+	useEffect(() => {
+		if (log.length === 0) return;
+		const fresh = log.filter((e) => e.t > seen.current && e.kind === 'switchGeneral');
+		seen.current = log[log.length - 1].t;
+		if (fresh.length === 0) return;
+
+		const e = fresh[fresh.length - 1];
+		const who = view.players.find((p) => p.id === e.who)?.nickname ?? '';
+		const general = GENERALS[e.general as string]?.cn ?? (e.general as string);
+		setBanner({ key: e.t, text: `${who} 阵亡 · 换上【${general}】` });
+		const timer = setTimeout(() => setBanner(null), 2400);
+		return () => clearTimeout(timer);
+	}, [log, view]);
+
+	if (!banner) return null;
+	return (
+		<div className="switch-banner" key={banner.key}>
+			{banner.text}
+		</div>
+	);
+}
+
+/**
  * 音效：跟 Floats 是一模一样的"游标记录已处理到哪条"写法 —— 服务端每次推的
  * 是最近 40 条战报，不去重的话每次 log 更新都会把这 40 条全部重播一遍。
  * 这个组件不渲染任何东西，纯粹是拿 useEffect 当日志订阅的钩子。
@@ -309,7 +354,7 @@ function soundFor(e: { kind: string; [k: string]: unknown }, view: GameView): vo
 		}
 		case 'move': {
 			const reason = e.reason as string | undefined;
-			if (reason === 'draw' || reason === 'drawPhase') play('draw');
+			if (reason === 'draw' || reason === 'drawPhase' || reason === 'switchGeneral') play('draw');
 			break;
 		}
 		// turnStart：noname 里没有贴切的通用音效可用，见 tools/audio/fetch-audio.mjs 的说明，故意不播
@@ -394,11 +439,13 @@ function Seat({
 					{FACTION_CN[p.faction]}
 				</div>
 			)}
-			{p.identity && (
+			{/* 身份局才有身份这个概念；单挑里 identity 字段只是引擎类型要求的占位值，不展示 */}
+			{p.identity && view.mode === 'identity' && (
 				<div className="identity" data-i={p.identity}>
 					{IDENTITY_CN[p.identity]}
 				</div>
 			)}
+			<RosterBadge p={p} />
 
 			{p.judge.length > 0 && (
 				<div className="judges">
@@ -438,6 +485,24 @@ function Marks({ p }: { p: PlayerView }) {
 				<div className="mark" key={t}>
 					{t}
 				</div>
+			))}
+		</div>
+	);
+}
+
+/**
+ * 单挑局势最重要的一条信息：这个人还剩几名武将没出场。走的是公开 flags/marks
+ * 通路（game:rosterLeft / game:rosterTotal，见 modes/duel.ts），身份局没有这两个
+ * flag，marks 里直接查不到，天然只在单挑显示，不用额外传 mode 判断。
+ */
+function RosterBadge({ p }: { p: PlayerView }) {
+	const left = p.marks['game:rosterLeft'];
+	const total = p.marks['game:rosterTotal'];
+	if (left === undefined || total === undefined) return null;
+	return (
+		<div className="roster">
+			{Array.from({ length: total }, (_, i) => (
+				<span key={i} className={`roster__pip${i < left ? ' alive' : ''}`} />
 			))}
 		</div>
 	);
@@ -952,7 +1017,15 @@ function ArrangePicker({
  * 武将详情。点自己的牌看自己的技能，点别人的看别人的 —— 武将技能是公开信息，
  * 桌上谁有什么本事本来就该人人可见。之前只有 title 提示，手机上根本没有 hover。
  */
-function Inspect({ p, onClose }: { p: PlayerView; onClose: () => void }) {
+function Inspect({
+	p,
+	mode,
+	onClose,
+}: {
+	p: PlayerView;
+	mode: GameView['mode'];
+	onClose: () => void;
+}) {
 	const g = GENERALS[p.general];
 	if (!g) return null;
 	const art = generalArt(g.id);
@@ -976,7 +1049,7 @@ function Inspect({ p, onClose }: { p: PlayerView; onClose: () => void }) {
 								))}
 							</span>
 						</div>
-						{p.identity && IDENTITY_GOAL[p.identity] && (
+						{mode === 'identity' && p.identity && IDENTITY_GOAL[p.identity] && (
 							<div className="pick__goal">{IDENTITY_GOAL[p.identity]}</div>
 						)}
 						{p.skills.map((sid) => {
@@ -1161,7 +1234,7 @@ function Result({ view }: { view: GameView }) {
 								{p.nickname} · {GENERALS[p.general]?.cn ?? ''}
 							</span>
 							<span className="seat__tag">
-								{IDENTITY_CN[p.identity ?? ''] ?? '?'}
+								{view.mode === 'identity' && (IDENTITY_CN[p.identity ?? ''] ?? '?')}
 								{p.alive ? '' : ' · 阵亡'}
 							</span>
 						</div>
@@ -1288,7 +1361,11 @@ function describe(e: { kind: string; [k: string]: unknown }, view: GameView): st
 		case 'dying':
 			return `${who('who')} 濒死`;
 		case 'die':
-			return `${who('who')} 阵亡`;
+			// 单挑换将时这条 'die' 只是"这名武将阵亡"的记账（还带着音效），
+			// 完整的"阵亡，换上 XX"由紧跟着的 switchGeneral 那条日志说，这里不重复一遍
+			return e.switching ? '' : `${who('who')} 阵亡`;
+		case 'switchGeneral':
+			return `${who('who')} 阵亡，换上【${GENERALS[e.general as string]?.cn ?? e.general}】`;
 		case 'turnStart':
 			return `── ${who('who')} 的回合 ──`;
 		default:

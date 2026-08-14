@@ -199,6 +199,23 @@ export async function startFivePlayerGame(
 	return host;
 }
 
+/** 建房、连房主、切到单挑模式、补 1 个机器人到 2 人、开局。返回已连接的房主客户端 */
+export async function startDuelGame(
+	worker: Unstable_DevWorker,
+	code: string,
+	hostPid: string,
+): Promise<TestClient> {
+	const host = new TestClient(wsBase(worker), code, hostPid, 'Host');
+	await host.connect();
+	host.send({ t: 'setMode', mode: 'duel' });
+	await host.waitFor((m) => m.t === 'lobby' && m.mode === 'duel');
+	host.send({ t: 'addBot' });
+	await host.waitFor((m) => m.t === 'lobby' && m.players.length === 2);
+	host.send({ t: 'start' });
+	await host.waitFor((m) => m.t === 'view');
+	return host;
+}
+
 /** 轮询等一个派生条件成立。用来等"手牌摸到了"这类没有单一消息边界的状态变化 */
 export async function waitUntil(check: () => boolean, timeoutMs = 10_000, intervalMs = 20): Promise<void> {
 	const start = Date.now();

@@ -287,6 +287,28 @@ body {
 .identity[data-i='rebel'] { background: var(--identity-rebel); }
 .identity[data-i='spy'] { background: var(--identity-spy); }
 
+/* ── 单挑：还剩几名武将。复用身份牌的位置——两者互斥，同一局只会出现其中一个 ── */
+.roster {
+	position: absolute;
+	top: 3.9vmin;
+	right: 0.5vmin;
+	display: flex;
+	gap: 0.3vmin;
+}
+
+.roster__pip {
+	width: 1.3vmin;
+	height: 1.3vmin;
+	border-radius: 50%;
+	background: rgba(15, 13, 11, 0.6);
+	border: 0.12vmin solid var(--gold-400);
+}
+
+.roster__pip.alive {
+	background: var(--gold-200);
+	box-shadow: 0 0 0.6vmin rgba(232, 200, 106, 0.7);
+}
+
 /* ── 装备区：四个槽位竖排在武将牌右侧 ── */
 .equips {
 	position: absolute;
@@ -1328,6 +1350,51 @@ body {
 	margin: 2vmin 0;
 }
 
+.mode-row {
+	display: flex;
+	gap: 1vmin;
+	margin: 1.6vmin 0;
+}
+
+.mode-btn {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 0.3vmin;
+	padding: 1.2vmin;
+	border-radius: 0.6vmin;
+	background: rgba(15, 13, 11, 0.7);
+	border: 0.15vmin solid var(--gold-500);
+	color: var(--paper-200);
+	cursor: pointer;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.mode-btn b {
+	font-family: var(--font-title);
+	font-size: 2vmin;
+	color: var(--paper-100);
+}
+
+.mode-btn span {
+	font-size: 1.4vmin;
+	color: var(--paper-300);
+}
+
+.mode-btn.active {
+	border-color: var(--gold-200);
+	background: rgba(201, 162, 39, 0.16);
+	box-shadow: var(--glow-gold);
+}
+
+.mode-btn.active b {
+	color: var(--gold-200);
+}
+
+.mode-btn:disabled {
+	cursor: default;
+}
+
 .lobby input {
 	width: 100%;
 	padding: 1.4vmin;
@@ -1691,4 +1758,47 @@ body {
 
 @media (max-height: 520px) {
 	.guide__glossary .guide__row b { flex-basis: 9.5vmin; }
+}
+
+/* ─────────────────────── 单挑 ─────────────────────── */
+
+/* 2 人局面对面：对手本来就靠 .opponents 的 justify-content:center 落在顶部正中，
+   缺的只是把自己从"贴左下角"挪到"贴底部正中"（JS 里按 duel 条件切 left/transform），
+   这里只需要把牌面稍微放大一点，撑满这场"对峙"该有的分量 */
+.table--duel .general { width: 20vmin; }
+.table--duel .general.self { width: 25vmin; }
+
+@media (max-width: 900px) {
+	.table--duel .general { width: 24vmin; }
+	.table--duel .general.self { width: 29vmin; }
+}
+
+/* 换将过场：整局最重要的一次状态跃迁，不能只是战报里一行小字 */
+.switch-banner {
+	position: absolute;
+	left: 50%;
+	top: 38%;
+	transform: translateX(-50%);
+	padding: 1.2vmin 3vmin;
+	border-radius: 0.6vmin;
+	background: rgba(15, 13, 11, 0.92);
+	border: 0.18vmin solid var(--gold-300);
+	box-shadow: var(--shadow-lift), var(--glow-gold);
+	font-family: var(--font-title);
+	font-size: 2.6vmin;
+	letter-spacing: 0.2vmin;
+	color: var(--gold-100);
+	text-align: center;
+	z-index: 8;
+	pointer-events: none;
+	animation: switch-banner-in 0.25s ease, switch-banner-out 0.3s ease 2.1s forwards;
+}
+
+@keyframes switch-banner-in {
+	from { opacity: 0; transform: translate(-50%, -0.8vmin) scale(0.96); }
+	to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes switch-banner-out {
+	to { opacity: 0; }
 }

@@ -7,7 +7,7 @@
  * 所以知道 id 也推不出是什么牌。
  */
 
-import type { AskRequest } from './protocol.js';
+import type { AskRequest, GameSetup } from './protocol.js';
 import type {
 	Card,
 	EquipSlot,
@@ -45,6 +45,8 @@ export interface PlayerView {
 
 export interface GameView {
 	you: string;
+	/** 局的模式——前端靠它决定要不要展示身份局专属 UI（身份徽标、目标引导…） */
+	mode: GameSetup['mode'];
 	players: PlayerView[];
 	seating: string[];
 	currentPlayer: string;
@@ -81,6 +83,8 @@ export function buildView(
 	state: GameState,
 	viewerId: string | null,
 	ask: AskRequest | undefined,
+	/** 默认给身份局，测试里一大批老调用点不传这个参数也不用改 */
+	mode: GameSetup['mode'] = 'identity',
 	revealAll = false,
 ): GameView {
 	const finished = !!state.finished;
@@ -143,6 +147,7 @@ export function buildView(
 
 	return {
 		you: viewerId ?? '',
+		mode,
 		players,
 		seating: state.seating.slice(),
 		currentPlayer: state.currentPlayer,

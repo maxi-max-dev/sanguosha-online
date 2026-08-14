@@ -6,15 +6,17 @@
  * 不需要"我也遇到过一次但复现不了"这种对话。
  *
  * 用法：
- *   pnpm --filter @sgs/engine soak            # 默认 200 局
+ *   pnpm --filter @sgs/engine soak            # 默认 200 局身份局
  *   pnpm --filter @sgs/engine soak 1000 6     # 1000 局，每局 6 人
+ *   pnpm --filter @sgs/engine soak 500 2 random duel   # 500 局单挑（第二个参数被忽略，固定 2 人）
  */
 
 import { decide } from '../ai/simple.js';
 import { GameOver, type Game } from '../game.js';
+import { DuelGame } from '../modes/duel.js';
 import { IdentityGame } from '../modes/identity.js';
 import { optionProvider } from '../options.js';
-import type { AskRequest, Decision, DecisionPayload, GameRecord } from '../protocol.js';
+import type { AskRequest, Decision, DecisionPayload, GameRecord, GameSetup } from '../protocol.js';
 import { registry } from '../registry.js';
 import { Rng } from '../rng.js';
 
@@ -100,6 +102,8 @@ export async function soak(
 	baseSeed = 1,
 	/** 'random' 铺开规则空间找崩溃；'ai' 检验机器人打得像不像样 */
 	driver: 'random' | 'ai' = 'random',
+	/** 'identity' 身份局（playerCount 生效）；'duel' 单挑（固定 2 人，playerCount 被忽略） */
+	mode: GameSetup['mode'] = 'identity',
 ): Promise<SoakResult> {
 	const res: SoakResult = {
 		games: 0,
@@ -112,6 +116,7 @@ export async function soak(
 	};
 	let totalDecisions = 0;
 	let totalRounds = 0;
+	const n = mode === 'duel' ? 2 : playerCount;
 
 	for (let i = 0; i < games; i++) {
 		const seed = baseSeed + i;
@@ -119,8 +124,8 @@ export async function soak(
 		const record: GameRecord = {
 			seed,
 			setup: {
-				mode: 'identity',
-				players: Array.from({ length: playerCount }, (_, k) => ({
+				mode,
+				players: Array.from({ length: n }, (_, k) => ({
 					id: `p${k}`,
 					nickname: `玩家${k}`,
 				})),
@@ -129,7 +134,7 @@ export async function soak(
 			decisions: [],
 		};
 
-		const g: Game = new IdentityGame(record, registry);
+		const g: Game = mode === 'duel' ? new DuelGame(record, registry) : new IdentityGame(record, registry);
 		g.optionProvider = optionProvider;
 
 		try {
@@ -177,11 +182,13 @@ if (isMain) {
 	const games = Number(process.argv[2] ?? 200);
 	const players = Number(process.argv[3] ?? 5);
 	const driver = (process.argv[4] === 'ai' ? 'ai' : 'random') as 'random' | 'ai';
+	const mode = (process.argv[5] === 'duel' ? 'duel' : 'identity') as 'identity' | 'duel';
+	const n = mode === 'duel' ? 2 : players;
 	const t0 = Date.now();
-	const r = await soak(games, players, 1, driver);
+	const r = await soak(games, players, 1, driver, mode);
 	const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
-	console.log(`\n跑了 ${r.games}/${games} 局（${players} 人，${driver === 'ai' ? '机器人对局' : '随机决策'}），耗时 ${secs}s`);
+	console.log(`\n跑了 ${r.games}/${games} 局（${mode === 'duel' ? '单挑' : `身份局 ${n} 人`}，${driver === 'ai' ? '机器人对局' : '随机决策'}），耗时 ${secs}s`);
 	console.log(`平均每局 ${r.avgDecisions} 个决策 / ${r.avgRounds} 轮`);
 	console.log(`崩溃 ${r.crashed} 局，平局 ${r.drawn} 局`);
 	console.log('\n胜负分布：');

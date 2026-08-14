@@ -6,7 +6,7 @@
  */
 
 import type { LogEntry } from './game.js';
-import type { DecisionPayload } from './protocol.js';
+import type { DecisionPayload, GameSetup } from './protocol.js';
 import type { AskHint, GameView } from './view.js';
 
 /** 大厅里的一个座位 */
@@ -21,9 +21,11 @@ export interface LobbyPlayer {
 export type ClientMsg =
 	/** 进房/重连。pid 由客户端生成并存在 localStorage，是断线重连的身份凭据 */
 	| { t: 'hello'; pid: string; name: string }
+	/** 房主切换模式（身份局/单挑），只在开局前有效 */
+	| { t: 'setMode'; mode: GameSetup['mode'] }
 	/** 房主开始游戏 */
 	| { t: 'start' }
-	/** 房主加/减机器人补位（人不齐时凑够 5 人开局） */
+	/** 房主加/减机器人补位（人不齐时凑够开局所需人数） */
 	| { t: 'addBot' }
 	| { t: 'removeBot' }
 	/** 房主开下一局：清掉牌局回到大厅，座位和人不散 */
@@ -34,7 +36,7 @@ export type ClientMsg =
 	| { t: 'ping' };
 
 export type ServerMsg =
-	| { t: 'lobby'; room: string; players: LobbyPlayer[]; you: string; canStart: boolean }
+	| { t: 'lobby'; room: string; players: LobbyPlayer[]; you: string; canStart: boolean; mode: GameSetup['mode'] }
 	/** 完整状态视图。已按收件人视角裁剪 */
 	| { t: 'view'; view: GameView; hint?: AskHint; deadline?: number }
 	/** 增量动画事件 */

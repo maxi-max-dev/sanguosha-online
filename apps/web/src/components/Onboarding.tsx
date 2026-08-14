@@ -44,7 +44,10 @@ const BASICS = [
 
 export function Onboarding({ view }: { view: GameView }) {
 	const me = view.players.find((p) => p.id === view.you);
-	const identity = me?.identity;
+	// 这份引导整个是围绕"你的身份目标"写的（IDENTITY_GOAL 只有 lord/loyalist/rebel/spy
+	// 四种取值），单挑没有身份，直接不弹——不然会给单挑玩家看一份写着"内奸"之类
+	// 完全文不对题的开局说明。单挑要不要有自己的引导是另一件事，这里先只保证不出错
+	const identity = view.mode === 'identity' ? me?.identity : undefined;
 	// 每局只自动弹一次：key 里带上牌堆数，换局必然不同
 	const seenKey = `sgs.guide.${view.seating.join('')}.${identity ?? ''}`;
 	const [open, setOpen] = useState(false);

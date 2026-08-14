@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import type {
 	AskHint,
 	ClientMsg,
+	GameSetup,
 	GameView,
 	LobbyPlayer,
 	LogEntry,
@@ -40,6 +41,8 @@ interface State {
 
 	lobby: LobbyPlayer[];
 	canStart: boolean;
+	/** 大厅当前选的模式，开局前房主可切换 */
+	mode: GameSetup['mode'];
 
 	view?: GameView;
 	hint?: AskHint;
@@ -98,6 +101,7 @@ export const useGame = create<State>((set, get) => ({
 	connected: false,
 	lobby: [],
 	canStart: false,
+	mode: 'identity',
 	log: [],
 	chat: [],
 	pickedCards: [],
@@ -159,6 +163,7 @@ export const useGame = create<State>((set, get) => ({
 						screen: 'lobby',
 						lobby: msg.players,
 						canStart: msg.canStart,
+						mode: msg.mode,
 						view: undefined,
 						hint: undefined,
 						deadline: undefined,

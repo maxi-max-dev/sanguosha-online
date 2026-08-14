@@ -13,6 +13,7 @@
 
 import {
 	ai,
+	DuelGame,
 	IdentityGame,
 	GameOver,
 	optionProvider,
@@ -23,6 +24,7 @@ import {
 	type ClientMsg,
 	type Decision,
 	type DecisionPayload,
+	type Game,
 	type GameRecord,
 	type GameSetup,
 	type LobbyPlayer,
@@ -49,8 +51,13 @@ interface Seat {
 	bot: boolean;
 }
 
-const MIN_PLAYERS = 5;
-const MAX_PLAYERS = 8;
+/** 每种模式的开局人数上下限。单挑固定 2 人，身份局沿用原来的 5–8 人 */
+const MODE_LIMITS: Record<GameSetup['mode'], { min: number; max: number }> = {
+	identity: { min: 5, max: 8 },
+	duel: { min: 2, max: 2 },
+};
+
+const MODE_CN: Record<GameSetup['mode'], string> = { identity: '身份局', duel: '单挑' };
 
 function json(data: unknown, status: number): Response {
 	return new Response(JSON.stringify(data), {
@@ -60,7 +67,8 @@ function json(data: unknown, status: number): Response {
 }
 
 export class RoomDO implements DurableObject {
-	private game?: IdentityGame;
+	/** 具体是 IdentityGame 还是 DuelGame 由 setup.mode 决定，房间层只认基类接口 */
+	private game?: Game;
 	/** 已落盘的决策条数，用于增量持久化 */
 	private persisted = 0;
 	/** 当前 ask 的超时截止时间（毫秒时间戳） */
@@ -93,6 +101,11 @@ export class RoomDO implements DurableObject {
 
 	private setMeta(k: string, v: string): void {
 		this.ctx.storage.sql.exec(`INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)`, k, v);
+	}
+
+	/** 大厅里房主选定的模式，开局前可改。未选过（新房间）默认身份局，不破坏老房间的行为 */
+	private mode(): GameSetup['mode'] {
+		return this.meta('mode') === 'duel' ? 'duel' : 'identity';
 	}
 
 	private seats(): Seat[] {
@@ -139,7 +152,7 @@ export class RoomDO implements DurableObject {
 	// ─────────────────────── 游戏实例 ───────────────────────
 
 	/** 拿到（必要时从日志重放出）当前对局。未开局则返回 undefined */
-	private async ensureGame(): Promise<IdentityGame | undefined> {
+	private async ensureGame(): Promise<Game | undefined> {
 		if (this.game) return this.game;
 		const seedStr = this.meta('seed');
 		const setupStr = this.meta('setup');
@@ -151,7 +164,9 @@ export class RoomDO implements DurableObject {
 			setup: JSON.parse(setupStr) as GameSetup,
 			decisions,
 		};
-		const g = new IdentityGame(record, registry);
+		// 具体走哪个 Game 子类由这局开局时定下的 setup.mode 决定，跟房间当前
+		// （可能已经被下一局改过）的模式选择无关——记录本身才是唯一真相
+		const g = record.setup.mode === 'duel' ? new DuelGame(record, registry) : new IdentityGame(record, registry);
 		g.optionProvider = optionProvider;
 		void g.runGame().catch((e) => {
 			if (!(e instanceof GameOver)) console.error('引擎异常', e);
@@ -222,6 +237,8 @@ export class RoomDO implements DurableObject {
 			switch (msg.t) {
 				case 'hello':
 					return await this.onHello(ws, msg.pid, msg.name);
+				case 'setMode':
+					return await this.onSetMode(ws, msg.mode);
 				case 'start':
 					return await this.onStart(ws);
 				case 'addBot':
@@ -272,7 +289,7 @@ export class RoomDO implements DurableObject {
 				await this.pushState();
 				return;
 			}
-			if (seats.length >= MAX_PLAYERS) {
+			if (seats.length >= MODE_LIMITS[this.mode()].max) {
 				return this.send(ws, { t: 'error', msg: '房间已满' });
 			}
 			this.ctx.storage.sql.exec(
@@ -294,6 +311,27 @@ export class RoomDO implements DurableObject {
 		await this.pushState();
 	}
 
+	private async onSetMode(ws: WebSocket, mode: GameSetup['mode']): Promise<void> {
+		const meta = this.sockMeta(ws);
+		if (!meta) return;
+		if (!this.seats().find((s) => s.pid === meta.pid)?.host) {
+			return this.send(ws, { t: 'error', msg: '只有房主能选择模式' });
+		}
+		if (this.meta('seed')) return this.send(ws, { t: 'error', msg: '游戏已开始' });
+		if (mode !== 'identity' && mode !== 'duel') return;
+
+		const limits = MODE_LIMITS[mode];
+		const seats = this.seats();
+		if (seats.length > limits.max) {
+			return this.send(ws, {
+				t: 'error',
+				msg: `${MODE_CN[mode]}最多 ${limits.max} 人，当前房间有 ${seats.length} 人，先请人离开`,
+			});
+		}
+		this.setMeta('mode', mode);
+		await this.pushState();
+	}
+
 	private async onStart(ws: WebSocket): Promise<void> {
 		const meta = this.sockMeta(ws);
 		if (!meta) return;
@@ -301,13 +339,17 @@ export class RoomDO implements DurableObject {
 		const me = seats.find((s) => s.pid === meta.pid);
 		if (!me?.host) return this.send(ws, { t: 'error', msg: '只有房主能开始' });
 		if (this.meta('seed')) return this.send(ws, { t: 'error', msg: '游戏已开始' });
-		if (seats.length < MIN_PLAYERS) {
-			return this.send(ws, { t: 'error', msg: `身份局至少 ${MIN_PLAYERS} 人（可加机器人补位）` });
+
+		const mode = this.mode();
+		const limits = MODE_LIMITS[mode];
+		if (seats.length < limits.min || seats.length > limits.max) {
+			const need = limits.min === limits.max ? `${limits.min}` : `${limits.min}-${limits.max}`;
+			return this.send(ws, { t: 'error', msg: `${MODE_CN[mode]}需要 ${need} 人（可加机器人补位）` });
 		}
 
 		const seed = Math.floor(Math.random() * 0x7fffffff);
 		const setup: GameSetup = {
-			mode: 'identity',
+			mode,
 			players: seats.map((s) => ({ id: s.pid, nickname: s.name })),
 			packs: ['standard'],
 		};
@@ -330,7 +372,7 @@ export class RoomDO implements DurableObject {
 		if (this.meta('seed')) return this.send(ws, { t: 'error', msg: '游戏已开始' });
 
 		if (add) {
-			if (seats.length >= MAX_PLAYERS) return this.send(ws, { t: 'error', msg: '房间已满' });
+			if (seats.length >= MODE_LIMITS[this.mode()].max) return this.send(ws, { t: 'error', msg: '房间已满' });
 			const n = seats.filter((s) => s.bot).length + 1;
 			this.ctx.storage.sql.exec(
 				`INSERT INTO seats (pid, name, host, bot, ord) VALUES (?, ?, 0, 1, ?)`,
@@ -526,6 +568,8 @@ export class RoomDO implements DurableObject {
 
 		if (!g) {
 			const seats = this.seats();
+			const mode = this.mode();
+			const limits = MODE_LIMITS[mode];
 			const online = new Set(
 				this.ctx.getWebSockets().map((w) => this.sockMeta(w)?.pid).filter(Boolean) as string[],
 			);
@@ -543,8 +587,9 @@ export class RoomDO implements DurableObject {
 					room: this.meta('code') ?? '',
 					players,
 					you: meta?.pid ?? '',
+					mode,
 					canStart: !!meta && seats.find((s) => s.pid === meta.pid)?.host === true &&
-						seats.length >= MIN_PLAYERS,
+						seats.length >= limits.min && seats.length <= limits.max,
 				});
 			}
 			return;
@@ -554,7 +599,9 @@ export class RoomDO implements DurableObject {
 		const hint = askHint(ask);
 		for (const ws of this.ctx.getWebSockets()) {
 			const meta = this.sockMeta(ws);
-			const view = buildView(g.state, meta?.pid ?? null, ask);
+			// 用 g.setup.mode（这局实际的模式）而不是 this.mode()（大厅当前选的模式）——
+			// 房主可能在这局还没结束时已经把大厅的下一局模式切走了，两者不该混用
+			const view = buildView(g.state, meta?.pid ?? null, ask, g.setup.mode);
 			this.send(ws, {
 				t: 'view',
 				view,

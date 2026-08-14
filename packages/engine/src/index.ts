@@ -7,6 +7,7 @@ export * from './options.js';
 export * from './generals.js';
 export * from './registry.js';
 export * from './modes/identity.js';
+export * from './modes/duel.js';
 export * from './view.js';
 export * from './wire.js';
 export * as ai from './ai/simple.js';

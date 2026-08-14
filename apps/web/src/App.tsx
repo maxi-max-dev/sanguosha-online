@@ -137,11 +137,18 @@ function Home() {
 	);
 }
 
+/** 模式 → 人数限制文案。房间层的真实校验在服务端（room.ts 的 MODE_LIMITS），这里只管显示 */
+const MODE_INFO: Record<string, { label: string; desc: string; need: string; max: number }> = {
+	identity: { label: '身份局', desc: '主公/忠臣/内奸/反贼', need: '5–8 人', max: 8 },
+	duel: { label: '单挑', desc: '各带 3 名武将轮换上场', need: '2 人', max: 2 },
+};
+
 function Lobby() {
-	const { room, lobby, canStart, pid, send, disconnect } = useGame();
+	const { room, lobby, canStart, mode, pid, send, disconnect } = useGame();
 	const me = lobby.find((p) => p.pid === pid);
 	const humans = lobby.filter((p) => !p.bot).length;
 	const link = `${location.origin}/?r=${room}`;
+	const info = MODE_INFO[mode];
 
 	return (
 		<div className="lobby">
@@ -159,6 +166,25 @@ function Lobby() {
 					复制邀请链接
 				</button>
 
+				{/*
+				  模式只有房主能切，且只在开局前——服务端拿人数超限当理由拒绝切换
+				  （比如身份局已经凑了 5 人，不能直接切到只容 2 人的单挑），
+				  这里不重复判断，切错了服务端会用 error 报文弹回来。
+				*/}
+				<div className="mode-row">
+					{Object.entries(MODE_INFO).map(([m, i]) => (
+						<button
+							key={m}
+							className={`mode-btn${mode === m ? ' active' : ''}`}
+							disabled={!me?.host}
+							onClick={() => send({ t: 'setMode', mode: m as 'identity' | 'duel' })}
+						>
+							<b>{i.label}</b>
+							<span>{i.need}·{i.desc}</span>
+						</button>
+					))}
+				</div>
+
 				<div className="seat-list">
 					{lobby.map((p) => (
 						<div key={p.pid} className={`seat${p.bot ? ' bot' : ''}`}>
@@ -174,8 +200,8 @@ function Lobby() {
 				</div>
 
 				<div style={{ fontSize: '1.7vmin', color: 'var(--paper-300)' }}>
-					{lobby.length} / 8 人 · 身份局需 5 人开局
-					{humans < 5 && lobby.length < 5 && '（人不够可以加机器人）'}
+					{lobby.length} / {info.max} 人 · {info.label}需 {info.need} 开局
+					{humans < info.max && lobby.length < info.max && '（人不够可以加机器人）'}
 				</div>
 
 				{me?.host && (

@@ -201,12 +201,17 @@ export interface GameRecord {
 }
 
 export interface GameSetup {
-	mode: 'identity';
+	mode: 'identity' | 'duel';
 	players: Array<{ id: string; nickname: string }>;
-	/** 可选：固定武将，用于测试。不给则走选将流程 */
+	/** 可选：固定武将，用于测试。不给则走选将流程（身份局用，单挑见 rosters） */
 	generals?: Record<string, string>;
-	/** 可选：固定身份，用于测试 */
+	/** 可选：固定身份，用于测试（身份局专用） */
 	identities?: Record<string, string>;
+	/**
+	 * 可选：固定选将名单+出场顺序，用于测试单挑模式。不给则走选将流程。
+	 * 数组顺序即出场顺序，第一个是首发
+	 */
+	rosters?: Record<string, string[]>;
 	/** 启用的卡牌包 */
 	packs: string[];
 }
