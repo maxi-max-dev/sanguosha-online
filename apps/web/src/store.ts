@@ -61,6 +61,8 @@ interface State {
 	pickOption(id: string | undefined): void;
 	/** 多选一：点了就直接提交，不再要一次"确定" */
 	pickAndCommitOption(id: string): void;
+	/** 直接提交一个出牌选项（重铸这类不需要再确认的动作） */
+	pickAndCommitPlay(optionId: string, targets: string[]): void;
 	clearPick(): void;
 	/** 把当前选择提交上去 */
 	commit(): void;
@@ -201,6 +203,14 @@ export const useGame = create<State>((set, get) => ({
 		set({ pickedOption: id, pickedTargets: [] });
 	},
 
+	pickAndCommitPlay(optionId, targets) {
+		const s = get();
+		const ask = s.view?.ask;
+		if (!ask || (ask.kind !== 'playPhase' && ask.kind !== 'respond')) return;
+		s.send({ t: 'decide', seq: ask.seq, payload: { type: 'play', optionId, targets } });
+		s.clearPick();
+	},
+
 	pickAndCommitOption(id) {
 		const s = get();
 		const ask = s.view?.ask;
@@ -282,5 +292,16 @@ export function cardSelectable(view: GameView | undefined, cardId: number): bool
 export function optionForCard(view: GameView | undefined, cardId: number): PlayOption | undefined {
 	const ask = view?.ask;
 	if (!ask || (ask.kind !== 'playPhase' && ask.kind !== 'respond')) return undefined;
-	return ask.options.find((o) => o.cards.length === 1 && o.cards[0] === cardId);
+	const mine = ask.options.filter((o) => o.cards.length === 1 && o.cards[0] === cardId);
+	// 优先"使用"；只能重铸的牌（如没有合法目标的铁索）也要点得动，否则看着像坏了
+	return mine.find((o) => !o.recast) ?? mine[0];
+}
+
+/** 当前选中的牌是否还有一个"重铸"的选项 */
+export function recastOptionFor(view: GameView | undefined, optionId?: string): PlayOption | undefined {
+	const ask = view?.ask;
+	if (!ask || ask.kind !== 'playPhase' || !optionId) return undefined;
+	const cur = ask.options.find((o) => o.id === optionId);
+	if (!cur || cur.recast) return undefined;
+	return ask.options.find((o) => o.recast && o.cards.join() === cur.cards.join());
 }

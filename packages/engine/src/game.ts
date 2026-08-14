@@ -1269,6 +1269,14 @@ export class Game {
 			const opt = options.find((o) => o.id === r.optionId);
 			if (!opt) return;
 
+			// 重铸：弃掉这张牌摸一张，不结算牌的效果，也不计入任何次数限制
+			if (opt.recast) {
+				this.pushLog({ kind: 'recast', who, name: opt.name, cards: opt.cards });
+				await this.discardCards(opt.cards, 'recast', who);
+				await this.drawCards(who, 1, 'recast');
+				continue;
+			}
+
 			if (opt.viaSkill && this.registry.skills[opt.viaSkill]?.active) {
 				const sk = this.registry.skills[opt.viaSkill]!;
 				this.pushLog({ kind: 'skill', who, skill: sk.id });

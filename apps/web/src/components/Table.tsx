@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView } from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_SYMBOL } from '../art.js';
-import { cardSelectable, optionForCard, useGame } from '../store.js';
+import { cardSelectable, optionForCard, recastOptionFor, useGame } from '../store.js';
 
 const IDENTITY_CN: Record<string, string> = {
 	lord: '主',
@@ -472,6 +472,8 @@ function Actions({ view }: { view: GameView }) {
 		);
 	}
 
+	const recast = recastOptionFor(view, pickedOption);
+
 	return (
 		<div className="actions">
 			<div className="prompt">{ask.prompt}</div>
@@ -479,6 +481,16 @@ function Actions({ view }: { view: GameView }) {
 				<button className="btn" disabled={!ready} onClick={commit}>
 					确 定
 				</button>
+				{/* 铁索这类可重铸的牌：选中后多给一个"弃掉换一张"的出口 */}
+				{recast && (
+					<button
+						className="btn ghost"
+						title="弃置此牌并摸一张牌"
+						onClick={() => useGame.getState().pickAndCommitPlay(recast.id, [])}
+					>
+						重 铸
+					</button>
+				)}
 				{ask.cancelable && (
 					<button className="btn ghost" onClick={pass}>
 						{ask.kind === 'playPhase' ? '结束回合' : '取 消'}

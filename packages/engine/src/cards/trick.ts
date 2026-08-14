@@ -255,9 +255,9 @@ export const tiesuolianhuan: CardDef = {
 	type: 'trick',
 	targetMin: 1,
 	targetMax: 2,
-	// TODO(引擎需要补强)：铁索连环可以重铸（出牌阶段弃置此牌摸一张），
-	// 但"用一张牌换一次摸牌"是脱离目标/结算的另一种出牌方式，现有 CardDef/options.ts
-	// 没有"同一张牌提供多种打出方式"的口子，这里先不做。
+	// 重铸：出牌阶段弃掉它摸一张，次数不限。引擎在 options.ts 里把它枚举成
+	// 一个独立选项（id 前缀 recast:），在 playPhase 里单独结算，不走用牌流程
+	recastable: true,
 	async onEffect(g, ev, target) {
 		const p = g.player(target);
 		p.chained = !p.chained;

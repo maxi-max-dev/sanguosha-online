@@ -47,6 +47,12 @@ export interface CardDef {
 	/** 是否可以被【无懈可击】响应。锦囊默认 true，基本牌/装备默认 false */
 	wuxieable?: boolean;
 
+	/**
+	 * 可重铸：出牌阶段可以弃置它并摸一张牌，次数不限。
+	 * 军争标准里只有【铁索连环】有这个属性 —— 没有它铁索在多数局面是死牌。
+	 */
+	recastable?: boolean;
+
 	/** 使用时（指定目标后、逐个结算前）触发一次 */
 	onUse?(g: Game, ev: UseEvent): Promise<void>;
 

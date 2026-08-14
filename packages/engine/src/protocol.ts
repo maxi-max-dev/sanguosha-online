@@ -48,6 +48,8 @@ export interface PlayOption {
 	viaSkill?: string;
 	/** 目标选择规则 */
 	targets: TargetSpec;
+	/** 这是"重铸"而非"使用"：弃掉它换一张牌，不结算牌的效果 */
+	recast?: boolean;
 }
 
 export interface TargetSpec {

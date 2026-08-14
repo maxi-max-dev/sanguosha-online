@@ -202,6 +202,17 @@ export const optionProvider: OptionProvider = {
 		for (const id of p.hand) {
 			const o = optionFromCard(g, who, g.card(id));
 			if (o) out.push(o);
+			// 重铸和使用是两个独立选项，同一张牌可能两者都能选（铁索）
+			const def = g.registry.cards[g.card(id).name];
+			if (def?.recastable) {
+				out.push({
+					id: optId(['recast', id]),
+					name: def.name,
+					cards: [id],
+					recast: true,
+					targets: { min: 0, max: 0, candidates: [], auto: true },
+				});
+			}
 		}
 		out.push(...convertOptions(g, p, 'use'));
 		out.push(...activeOptions(g, p));
