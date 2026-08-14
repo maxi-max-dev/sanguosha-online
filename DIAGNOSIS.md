@@ -1,7 +1,6 @@
 # 产品诊断与施工单
 
-> **进度（2026-08-14）**：A1–A6、B1、B3 全部完工（A6 待 Max 本人验收）。
-> 剩余：B2 前端错误边界、B4 平衡。
+> **进度**：A1–A6、B1、B2、B3 全部完工。剩余：B4 平衡（仅影响机器人对局）。
 
 目标：从"能跑通"做到"朋友拿起来就会玩、玩得下去、愿意再来一局"。
 
@@ -180,3 +179,41 @@ Worker/DO 层和前端交互（连接、重连、托管、再来一局）全靠�
    ```
    全绿才算过。
 5. **不要自己部署**，改完交给我验收后统一上线。
+
+---
+
+## 四、请求类型入口对账表（防止 A1/A4/A5/A6 那类缺陷再发生）
+
+这一轮所有严重缺陷都是同一个模式：**协议里有这种请求、服务端也下发了，前端却没有入口**，
+玩家只能干等超时。零散地"发现一个修一个"效率太低，所以在这里做成一张对账表。
+
+**加任何新的 `AskRequest` 种类时，必须同时在这张表里登记，并确认入口存在。**
+
+| kind | 前端入口 | 位置 |
+|---|---|---|
+| `playPhase` | 手牌 + 操作区 | `Hand` / `Actions` |
+| `chooseCards` | 选牌浮层 | `ChooseCardsPicker` |
+| `arrange` | 排序浮层 | `ArrangePicker` |
+| `chooseSuit` | 花色按钮 | `.suit-pick` |
+| `distribute` | 分配浮层 | `DistributePicker` |
+| `chooseOption` | 选项行 / 选将面板 | `OptionRow` / `GeneralPicker` |
+| `choosePlayers` | 点武将牌选人 | 通用路径 + `isTargetable()` |
+| `respond` | 手牌变可点 | 通用路径 + `cardSelectable()` |
+| `confirmSkill` | 确定 / 取消 | 通用路径 |
+| `discard` | **无** | ⚠️ 见下 |
+
+**关于 `discard`**：协议里定义了，但**引擎从不构造它** —— 弃牌阶段走的是 `chooseCards`
+（已用 `grep -rn "kind: 'discard'" packages/engine/src/` 确认，除类型定义外零命中）。
+它是协议里的死代码。留着不影响功能，但**别照着它实现东西**，
+要么哪天真用上时先补 UI，要么就删掉。留着一个"看起来支持其实没人用"的分支，
+正是这一轮几个缺陷的温床。
+
+核对方法（改协议后跑一遍）：
+
+```bash
+grep -oE "kind: '[a-zA-Z]+'" packages/engine/src/protocol.ts | sort -u   # 协议里有几种
+sed -n '/^function Actions/,/^}/p' apps/web/src/components/Table.tsx \
+  | grep -oE "kind === '[a-zA-Z]+'" | sort -u                            # 前端分流了几种
+```
+
+两边的差集必须能逐个说清楚"为什么不需要专属 UI"，说不清的就是缺陷。
