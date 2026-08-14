@@ -384,6 +384,34 @@ describe('视角裁剪（防作弊）', () => {
 		for (const id of g.state.drawPile) expect(view.cards[id]).toBeUndefined();
 	});
 
+	it('arrange 请求（观星）里的牌，当事人看得到牌面，别人看不到', async () => {
+		const g = await boot(makeRecord(5, 34));
+		const me = g.state.players[1];
+		const peeked = g.state.drawPile.slice(0, 3);
+		const ask = {
+			seq: 999,
+			kind: 'arrange' as const,
+			who: me.id,
+			prompt: '观星',
+			cards: peeked,
+			topLabel: '牌堆顶',
+			bottomLabel: '牌堆底',
+			maxTop: 3,
+			cancelable: false,
+			timeout: 30,
+		};
+
+		// 观星的牌不离开牌堆（skills/shu.ts 只重排 drawPile），所以默认的视角裁剪
+		// 会把它们当普通牌堆牌藏掉——那样发动技能的人只能看到几张牌背，技能等于废了
+		const mine = buildView(g.state, me.id, ask);
+		for (const id of peeked) expect(mine.cards[id]).toBeDefined();
+
+		// 但这个豁免必须严格限定在当事人身上，别人连 ask 都收不到，更不该看到牌面
+		const other = g.state.players.find((p) => p.id !== me.id)!;
+		const theirs = buildView(g.state, other.id, ask);
+		for (const id of peeked) expect(theirs.cards[id]).toBeUndefined();
+	});
+
 	it('请求只发给当事人', async () => {
 		const g = await boot(makeRecord(5, 35));
 		const ask = g.getPendingAsk()!;

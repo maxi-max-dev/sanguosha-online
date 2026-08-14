@@ -86,6 +86,9 @@ export function buildView(
 	const finished = !!state.finished;
 	const showAll = revealAll || finished;
 
+	/** 请求只发给当事人，别人不该知道"他正在被问什么"的细节 */
+	const myAsk = ask && viewerId !== null && ask.who === viewerId ? ask : undefined;
+
 	/** 该玩家有权看到牌面的牌 id */
 	const visible = new Set<number>();
 
@@ -96,6 +99,14 @@ export function buildView(
 		for (const id of Object.values(p.equip)) if (typeof id === 'number') visible.add(id);
 		for (const id of p.judge) visible.add(id);
 	}
+
+	/*
+	 * 观星这类"看牌堆顶再排回去"的技能，牌自始至终没离开牌堆（见 skills/shu.ts），
+	 * 按上面的规则会被当成普通牌堆牌藏掉，当事人只能看到几张牌背——技能就废了。
+	 * 所以给 arrange 开一个豁免：牌面只跟着 myAsk 走，和请求本身同一个门，
+	 * 别人拿不到请求也就拿不到牌面。别处不要再加这种豁免，要加就加在这一个地方。
+	 */
+	if (myAsk?.kind === 'arrange') for (const id of myAsk.cards) visible.add(id);
 
 	const players: PlayerView[] = state.players.map((p) => {
 		const isSelf = viewerId !== null && p.id === viewerId;
@@ -143,8 +154,7 @@ export function buildView(
 		processing: state.processing.slice(),
 		cards,
 		finished: state.finished,
-		// 请求只发给当事人，别人不该知道"他正在被问什么"的细节
-		ask: ask && viewerId !== null && ask.who === viewerId ? ask : undefined,
+		ask: myAsk,
 	};
 }
 

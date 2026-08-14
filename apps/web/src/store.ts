@@ -52,6 +52,11 @@ interface State {
 	pickedOption?: string;
 	/** distribute（郭嘉遗计）专用：每张牌分给了谁，没在这里出现就是留给自己 */
 	pickedAssign: Array<{ card: number; to: string }>;
+	/** arrange（观星）专用：牌堆顶/牌堆底两个区当前的排列，顶区的顺序就是接下来摸牌的顺序 */
+	arrangeTop: number[];
+	arrangeBottom: number[];
+	/** 当前展开"用法"浮层的手牌 id——只有一张牌有多种打法（转化技/重铸）时才用得上 */
+	cardMenu?: number;
 
 	setName(n: string): void;
 	connect(room: string): void;
@@ -63,10 +68,14 @@ interface State {
 	pickOption(id: string | undefined): void;
 	/** distribute：把一张牌分给 to；to 为 undefined 表示撤销分配（留给自己） */
 	setAssign(card: number, to: string | undefined): void;
+	/** arrange：把一张牌在牌堆顶/牌堆底两个区之间挪动，顶区满了（到 maxTop）就不让再放进去 */
+	moveArrangeCard(id: number, zone: 'top' | 'bottom'): void;
+	/** arrange：顶区里跟相邻一张交换位置，用来调先后手顺序 */
+	moveArrangeOrder(id: number, dir: -1 | 1): void;
+	/** 展开/收起某张手牌的"用法"浮层；再点一次同一张牌就收起 */
+	setCardMenu(id: number | undefined): void;
 	/** 多选一：点了就直接提交，不再要一次"确定" */
 	pickAndCommitOption(id: string): void;
-	/** 直接提交一个出牌选项（重铸这类不需要再确认的动作） */
-	pickAndCommitPlay(optionId: string, targets: string[]): void;
 	clearPick(): void;
 	/** 把当前选择提交上去 */
 	commit(): void;
@@ -91,6 +100,8 @@ export const useGame = create<State>((set, get) => ({
 	pickedCards: [],
 	pickedTargets: [],
 	pickedAssign: [],
+	arrangeTop: [],
+	arrangeBottom: [],
 
 	setName(n) {
 		localStorage.setItem('sgs.name', n);
@@ -141,19 +152,32 @@ export const useGame = create<State>((set, get) => ({
 						pickedTargets: [],
 						pickedOption: undefined,
 						pickedAssign: [],
+						cardMenu: undefined,
+						arrangeTop: [],
+						arrangeBottom: [],
 					});
 					break;
 				case 'view':
-					// 换了新请求就清空上一轮的选择，否则会把旧的选中态带进新一轮
+					// 换了新请求就清空上一轮的选择，否则会把旧的选中态带进新一轮；
+					// arrange 请求还要按 maxTop 给个默认排列，等价于"不动它，直接摸最上面几张"
 					set((s) => {
 						const changed = s.view?.ask?.seq !== msg.view.ask?.seq;
+						const ask = msg.view.ask;
 						return {
 							screen: 'table',
 							view: msg.view,
 							hint: msg.hint,
 							deadline: msg.deadline,
 							...(changed
-								? { pickedCards: [], pickedTargets: [], pickedOption: undefined, pickedAssign: [] }
+								? {
+										pickedCards: [],
+										pickedTargets: [],
+										pickedOption: undefined,
+										pickedAssign: [],
+										cardMenu: undefined,
+										arrangeTop: ask?.kind === 'arrange' ? ask.cards.slice(0, ask.maxTop) : [],
+										arrangeBottom: ask?.kind === 'arrange' ? ask.cards.slice(ask.maxTop) : [],
+									}
 								: {}),
 						};
 					});
@@ -227,12 +251,33 @@ export const useGame = create<State>((set, get) => ({
 		}));
 	},
 
-	pickAndCommitPlay(optionId, targets) {
+	moveArrangeCard(id, zone) {
 		const s = get();
 		const ask = s.view?.ask;
-		if (!ask || (ask.kind !== 'playPhase' && ask.kind !== 'respond')) return;
-		s.send({ t: 'decide', seq: ask.seq, payload: { type: 'play', optionId, targets } });
-		s.clearPick();
+		if (ask?.kind !== 'arrange') return;
+		if (zone === 'top') {
+			// 顶区放满了就拦下来，界面上表现为按钮点了没反应；服务端也会按 maxTop 兜底校验
+			if (s.arrangeTop.length >= ask.maxTop || s.arrangeTop.includes(id)) return;
+			set({ arrangeTop: [...s.arrangeTop, id], arrangeBottom: s.arrangeBottom.filter((x) => x !== id) });
+		} else {
+			if (s.arrangeBottom.includes(id)) return;
+			set({ arrangeBottom: [...s.arrangeBottom, id], arrangeTop: s.arrangeTop.filter((x) => x !== id) });
+		}
+	},
+
+	moveArrangeOrder(id, dir) {
+		set((s) => {
+			const i = s.arrangeTop.indexOf(id);
+			const j = i + dir;
+			if (i < 0 || j < 0 || j >= s.arrangeTop.length) return {};
+			const next = [...s.arrangeTop];
+			[next[i], next[j]] = [next[j], next[i]];
+			return { arrangeTop: next };
+		});
+	},
+
+	setCardMenu(id) {
+		set({ cardMenu: id });
 	},
 
 	pickAndCommitOption(id) {
@@ -244,7 +289,7 @@ export const useGame = create<State>((set, get) => ({
 	},
 
 	clearPick() {
-		set({ pickedCards: [], pickedTargets: [], pickedOption: undefined, pickedAssign: [] });
+		set({ pickedCards: [], pickedTargets: [], pickedOption: undefined, pickedAssign: [], cardMenu: undefined });
 	},
 
 	commit() {
@@ -283,6 +328,9 @@ export const useGame = create<State>((set, get) => ({
 			case 'distribute':
 				send({ type: 'distribute', assign: s.pickedAssign });
 				break;
+			case 'arrange':
+				send({ type: 'arrange', top: s.arrangeTop, bottom: s.arrangeBottom });
+				break;
 		}
 		s.clearPick();
 	},
@@ -315,20 +363,13 @@ export function cardSelectable(view: GameView | undefined, cardId: number): bool
 	}
 }
 
-/** 点了某张手牌后，对应哪个出牌选项 */
-export function optionForCard(view: GameView | undefined, cardId: number): PlayOption | undefined {
+/**
+ * 点了某张手牌后，对应的全部出牌选项。一张牌可能有多种打法——普通使用、
+ * 转化技当另一张牌用、重铸——服务端把它们都算成独立的 option 一起下发；
+ * 前端不筛第一个，只有一种时 UI 层直接选中，多种时弹"用法"菜单让玩家自己挑。
+ */
+export function optionsForCard(view: GameView | undefined, cardId: number): PlayOption[] {
 	const ask = view?.ask;
-	if (!ask || (ask.kind !== 'playPhase' && ask.kind !== 'respond')) return undefined;
-	const mine = ask.options.filter((o) => o.cards.length === 1 && o.cards[0] === cardId);
-	// 优先"使用"；只能重铸的牌（如没有合法目标的铁索）也要点得动，否则看着像坏了
-	return mine.find((o) => !o.recast) ?? mine[0];
-}
-
-/** 当前选中的牌是否还有一个"重铸"的选项 */
-export function recastOptionFor(view: GameView | undefined, optionId?: string): PlayOption | undefined {
-	const ask = view?.ask;
-	if (!ask || ask.kind !== 'playPhase' || !optionId) return undefined;
-	const cur = ask.options.find((o) => o.id === optionId);
-	if (!cur || cur.recast) return undefined;
-	return ask.options.find((o) => o.recast && o.cards.join() === cur.cards.join());
+	if (!ask || (ask.kind !== 'playPhase' && ask.kind !== 'respond')) return [];
+	return ask.options.filter((o) => o.cards.length === 1 && o.cards[0] === cardId);
 }

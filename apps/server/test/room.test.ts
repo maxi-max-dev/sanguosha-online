@@ -81,24 +81,25 @@ describe('RoomDO 端到端', () => {
 		const code = await createRoom(worker);
 		const host = await startFivePlayerGame(worker, code, 'p-reconnect-host');
 		try {
-			host.auto = true;
 			/**
-			 * 选将阶段手牌是空的，摸到初始 4 张牌之后才有意义比较。
+			 * 不能用 auto 全程自动应答再"事后冻结"——冻结的只是我们自己会不会再发
+			 * decide，服务端并不会跟着停。机器人照样在后台继续跑，如果轮回到 host
+			 * 自己的下一个回合，摸牌阶段是不需要 ask 的强制摸 2 张，跟 host 答不答
+			 * 决策毫无关系，快照会在我们看不见的地方悄悄多出牌来（实测踩过：
+			 * 断线重连读回来的手牌比断线前多了 2 张）。
 			 *
-			 * 这里必须用逐条消息判定（waitFor），不能轮询（waitUntil）：defaultDecision
-			 * 是"能不做就不做"的最保守策略——出牌阶段从不出牌，被杀了也从不打闪防御。
-			 * 一旦轮到自己防守，可能几步之内就阵亡、手牌清空。轮询哪怕只隔几十毫秒，
-			 * 都可能整个跳过"手牌从空到非空"这一帧，直接踩到死后的空手牌——实测踩过。
-			 * 直接从命中的那条消息取快照，而不是事后再读可能已经往前走了的 host.view，
-			 * 两者都是为了不让这条测试自己制造假失败。
+			 * 真正稳的锚点是"服务端结构性地卡在等 host 决策"——只要我们不去应答，
+			 * 这个状态在真实的 20~60 秒读秒耗尽之前不会自己动。所以这里手动只应答
+			 * 一次选将（不影响手牌/体力，随便选），然后专等 host 的下一个 ask，
+			 * 从那条消息里取快照后就再也不碰它——之后不管断线多久，这个 ask
+			 * 对应的手牌/体力都是冻住的。
 			 */
-			const dealt = (await host.waitFor(
-				(m) => m.t === 'view' && !!m.view.players.find((p) => p.id === host.pid)?.hand?.length,
-				15_000,
-			)) as ViewMsg;
-			host.auto = false; // 立刻定格，不让自动应答继续推进
+			const pick = await host.waitForOwnAsk();
+			host.send({ t: 'decide', seq: pick.seq, payload: defaultDecision(pick) });
 
-			const before = dealt.view.players.find((p) => p.id === host.pid)!;
+			// 下一次轮到 host，就是我们的锚点：拿到快照后故意不回应，让它稳稳卡在这里
+			await host.waitForOwnAsk(pick.seq, 20_000);
+			const before = host.view!.view.players.find((p) => p.id === host.pid)!;
 			const snapshot = { hand: [...before.hand!].sort((a, b) => a - b), hp: before.hp, maxHp: before.maxHp };
 
 			host.close();
@@ -166,17 +167,23 @@ describe('RoomDO 端到端', () => {
 	});
 
 	it('B1：进行中导出被拒绝（403）；结算后可导出并能在本地精确重放；再来一局保留座位、清空决策日志', async () => {
+		// 这条要跑完整整两局游戏（5 人身份局，机器人真打，牌局长度看随机种子的脸色），
+		// 给足单条用例的超时预算，别被全局默认值卡住
 		const code = await createRoom(worker);
 		const host = await startFivePlayerGame(worker, code, 'p-full-host');
 		try {
 			const seatsBefore = host.lobby!.players.map((p) => p.pid).sort();
-			host.auto = true;
 
-			// 进行中：防作弊边界必须挡住，GameRecord 含全员身份和手牌
+			// 进行中：防作弊边界必须挡住，GameRecord 含全员身份和手牌。
+			// 必须在打开 auto 之前查，而不是之后——见过整局 5 人身份局在小几百毫秒内
+			// 就打完的情况，auto 一开可能几个来回就直接结算了，这里再查就可能已经
+			// 不是"进行中"了。startFivePlayerGame 刚返回时保证只处理过选将，
+			// 离结束还远，这个时间点才是稳的。
 			const mid = await fetchReplay(worker, code);
 			expect(mid.status).toBe(403);
 
-			const finishedMsg = await host.waitFinished(30_000);
+			host.auto = true;
+			const finishedMsg = await host.waitFinished(45_000);
 			const finished1 = finishedMsg.view.finished!;
 
 			const res1 = await fetchReplay(worker, code);
@@ -212,7 +219,7 @@ describe('RoomDO 端到端', () => {
 			// 开第二局，跑完，确认是全新的决策日志（从 seq 0 重新算，而不是接着第一局的尾巴）
 			host.auto = true;
 			host.send({ t: 'start' });
-			const finishedMsg2 = await host.waitFinished(30_000);
+			const finishedMsg2 = await host.waitFinished(45_000);
 			const finished2 = finishedMsg2.view.finished!;
 
 			const res2 = await fetchReplay(worker, code);
@@ -234,5 +241,5 @@ describe('RoomDO 端到端', () => {
 		} finally {
 			host.close();
 		}
-	});
+	}, 100_000);
 });

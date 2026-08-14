@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView } from '@sgs/engine';
+import { ALL_SKILLS, CARDS, GENERALS, type Card, type GameView, type PlayerView, type PlayOption } from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_SYMBOL } from '../art.js';
 import { play, useSound } from '../sound.js';
-import { cardSelectable, optionForCard, recastOptionFor, useGame } from '../store.js';
+import { cardSelectable, optionsForCard, useGame } from '../store.js';
 
 const IDENTITY_CN: Record<string, string> = {
 	lord: '主',
@@ -553,7 +553,7 @@ export function CardFace({
 // ─────────────────────── 手牌 ───────────────────────
 
 function Hand({ view, me }: { view: GameView; me: PlayerView }) {
-	const { pickedCards, toggleCard, pickOption, pickedOption } = useGame();
+	const { pickedCards, toggleCard, pickOption, pickedOption, cardMenu, setCardMenu } = useGame();
 	const hand = me.hand ?? [];
 	// 牌多了就叠得更紧，保证始终在一行里放得下
 	const overlap = hand.length > 6 ? `${-2.4 - (hand.length - 6) * 0.9}vmin` : '-2.4vmin';
@@ -562,9 +562,20 @@ function Hand({ view, me }: { view: GameView; me: PlayerView }) {
 		<div className="hand">
 			{hand.map((id) => {
 				const selectable = cardSelectable(view, id);
-				const selected = pickedCards.includes(id) || optionForCard(view, id)?.id === pickedOption;
+				const opts = optionsForCard(view, id);
+				const selected = pickedCards.includes(id) || opts.some((o) => o.id === pickedOption);
 				return (
 					<div className="hand__slot" key={id} style={{ '--overlap': overlap } as React.CSSProperties}>
+						{/* 一张牌有多种打法（转化技/重铸）时先弹菜单选，别自作主张挑第一个 */}
+						{cardMenu === id && (
+							<CardOptionMenu
+								options={opts}
+								onPick={(o) => {
+									pickOption(pickedOption === o.id ? undefined : o.id);
+									setCardMenu(undefined);
+								}}
+							/>
+						)}
 						<CardFace
 							card={view.cards[id]}
 							className={`${selectable ? '' : 'disabled'} ${selected ? 'selected' : ''}`}
@@ -572,8 +583,12 @@ function Hand({ view, me }: { view: GameView; me: PlayerView }) {
 								if (!selectable) return;
 								const ask = view.ask;
 								if (ask?.kind === 'playPhase' || ask?.kind === 'respond') {
-									const opt = optionForCard(view, id);
-									pickOption(pickedOption === opt?.id ? undefined : opt?.id);
+									if (opts.length <= 1) {
+										pickOption(pickedOption === opts[0]?.id ? undefined : opts[0]?.id);
+										setCardMenu(undefined);
+									} else {
+										setCardMenu(cardMenu === id ? undefined : id);
+									}
 								} else {
 									toggleCard(id);
 								}
@@ -584,6 +599,28 @@ function Hand({ view, me }: { view: GameView; me: PlayerView }) {
 			})}
 		</div>
 	);
+}
+
+/**
+ * 一张牌的"用法"浮层：转化技/重铸这些额外打法，服务端早算好随 options 下发，
+ * 之前前端永远只取第一个，武圣/龙胆/倾国这类转化技等于点不出来（见 DIAGNOSIS A5）。
+ */
+function CardOptionMenu({ options, onPick }: { options: PlayOption[]; onPick: (o: PlayOption) => void }) {
+	return (
+		<div className="card-menu">
+			{options.map((o) => (
+				<button key={o.id} className="card-menu__btn" onClick={() => onPick(o)}>
+					{cardOptionLabel(o)}
+				</button>
+			))}
+		</div>
+	);
+}
+
+function cardOptionLabel(o: PlayOption): string {
+	if (o.recast) return '重铸';
+	const name = CARDS[o.name]?.cn ?? o.name;
+	return o.viaSkill ? `当【${name}】· ${ALL_SKILLS[o.viaSkill]?.cn ?? o.viaSkill}` : `当【${name}】`;
 }
 
 // ─────────────────────── 技能 ───────────────────────
@@ -668,8 +705,7 @@ function Actions({ view }: { view: GameView }) {
 	 */
 	if (ask.kind === 'chooseCards') return <ChooseCardsPicker ask={ask} view={view} />;
 	if (ask.kind === 'distribute') return <DistributePicker ask={ask} view={view} />;
-
-	const recast = recastOptionFor(view, pickedOption);
+	if (ask.kind === 'arrange') return <ArrangePicker ask={ask} view={view} />;
 
 	return (
 		<div className="actions">
@@ -678,16 +714,6 @@ function Actions({ view }: { view: GameView }) {
 				<button className="btn" disabled={!ready} onClick={commit}>
 					确 定
 				</button>
-				{/* 铁索这类可重铸的牌：选中后多给一个"弃掉换一张"的出口 */}
-				{recast && (
-					<button
-						className="btn ghost"
-						title="弃置此牌并摸一张牌"
-						onClick={() => useGame.getState().pickAndCommitPlay(recast.id, [])}
-					>
-						重 铸
-					</button>
-				)}
 				{ask.cancelable && (
 					<button className="btn ghost" onClick={pass}>
 						{ask.kind === 'playPhase' ? '结束回合' : '取 消'}
@@ -799,6 +825,78 @@ function DistributePicker({
 						</div>
 					);
 				})}
+			</div>
+			<div className="btn-row">
+				<button className="btn" onClick={commit}>
+					确 定
+				</button>
+				{ask.cancelable && (
+					<button className="btn ghost" onClick={pass}>
+						取 消
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * arrange 的排序浮层（观星）：这几张牌只有发动者能看，服务端下发的就是真实牌面，
+ * 正常用 CardFace 画即可。牌堆顶那组的顺序有意义（数组第一个最先摸到），用上下移
+ * 按钮调；两个区之间可以来回丢，顶区满了（到 maxTop）就不让再放，交互不做拖拽。
+ */
+function ArrangePicker({
+	ask,
+	view,
+}: {
+	ask: Extract<GameView['ask'], { kind: 'arrange' }>;
+	view: GameView;
+}) {
+	const { arrangeTop, arrangeBottom, moveArrangeCard, moveArrangeOrder, commit, pass } = useGame();
+
+	return (
+		<div className="picker">
+			<div className="picker__title">{ask.prompt}</div>
+			<div className="arrange">
+				<div className="arrange__zone">
+					<div className="arrange__label">
+						{ask.topLabel}（最多 {ask.maxTop} 张 · 先后有序，最前的最先摸到）
+					</div>
+					<div className="arrange__row">
+						{arrangeTop.map((id, i) => (
+							<div className="arrange__card" key={id}>
+								<CardFace card={view.cards[id]} />
+								<div className="arrange__ctrl">
+									<button disabled={i === 0} onClick={() => moveArrangeOrder(id, -1)}>
+										↑
+									</button>
+									<button disabled={i === arrangeTop.length - 1} onClick={() => moveArrangeOrder(id, 1)}>
+										↓
+									</button>
+									<button onClick={() => moveArrangeCard(id, 'bottom')}>放到{ask.bottomLabel}</button>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+				<div className="arrange__zone">
+					<div className="arrange__label">{ask.bottomLabel}</div>
+					<div className="arrange__row">
+						{arrangeBottom.map((id) => (
+							<div className="arrange__card" key={id}>
+								<CardFace card={view.cards[id]} />
+								<div className="arrange__ctrl">
+									<button
+										disabled={arrangeTop.length >= ask.maxTop}
+										onClick={() => moveArrangeCard(id, 'top')}
+									>
+										放到{ask.topLabel}
+									</button>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
 			</div>
 			<div className="btn-row">
 				<button className="btn" onClick={commit}>
