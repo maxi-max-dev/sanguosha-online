@@ -11,5 +11,161 @@
     "dieMale": "/audio/effect/dieMale.mp3",
     "dieFemale": "/audio/effect/dieFemale.mp3",
     "draw": "/audio/effect/draw.mp3"
+  },
+  "voice": {
+    "mashu": null,
+    "qicai": null,
+    "jianxiong": [
+      "/audio/voice/jianxiong-1.mp3",
+      "/audio/voice/jianxiong-2.mp3"
+    ],
+    "hujia": [
+      "/audio/voice/hujia-1.mp3",
+      "/audio/voice/hujia-2.mp3"
+    ],
+    "fankui": [
+      "/audio/voice/fankui-1.mp3",
+      "/audio/voice/fankui-2.mp3"
+    ],
+    "guicai": [
+      "/audio/voice/guicai-1.mp3",
+      "/audio/voice/guicai-2.mp3"
+    ],
+    "ganglie": [
+      "/audio/voice/ganglie-1.mp3",
+      "/audio/voice/ganglie-2.mp3"
+    ],
+    "tuxi": [
+      "/audio/voice/tuxi-1.mp3",
+      "/audio/voice/tuxi-2.mp3"
+    ],
+    "luoyi": [
+      "/audio/voice/luoyi-1.mp3",
+      "/audio/voice/luoyi-2.mp3"
+    ],
+    "tiandu": [
+      "/audio/voice/tiandu-1.mp3",
+      "/audio/voice/tiandu-2.mp3"
+    ],
+    "yiji": [
+      "/audio/voice/yiji-1.mp3",
+      "/audio/voice/yiji-2.mp3"
+    ],
+    "luoshen": [
+      "/audio/voice/luoshen-1.mp3",
+      "/audio/voice/luoshen-2.mp3"
+    ],
+    "qingguo": [
+      "/audio/voice/qingguo-1.mp3",
+      "/audio/voice/qingguo-2.mp3"
+    ],
+    "rende": [
+      "/audio/voice/rende-1.mp3",
+      "/audio/voice/rende-2.mp3"
+    ],
+    "jijiang": [
+      "/audio/voice/jijiang-1.mp3",
+      "/audio/voice/jijiang-2.mp3"
+    ],
+    "wusheng": [
+      "/audio/voice/wusheng-1.mp3",
+      "/audio/voice/wusheng-2.mp3"
+    ],
+    "paoxiao": [
+      "/audio/voice/paoxiao-1.mp3",
+      "/audio/voice/paoxiao-2.mp3"
+    ],
+    "guanxing": [
+      "/audio/voice/guanxing-1.mp3",
+      "/audio/voice/guanxing-2.mp3"
+    ],
+    "kongcheng": [
+      "/audio/voice/kongcheng-1.mp3",
+      "/audio/voice/kongcheng-2.mp3"
+    ],
+    "longdan": [
+      "/audio/voice/longdan-1.mp3",
+      "/audio/voice/longdan-2.mp3"
+    ],
+    "tieji": [
+      "/audio/voice/tieji-1.mp3",
+      "/audio/voice/tieji-2.mp3"
+    ],
+    "jizhi": [
+      "/audio/voice/jizhi-1.mp3",
+      "/audio/voice/jizhi-2.mp3"
+    ],
+    "zhiheng": [
+      "/audio/voice/zhiheng-1.mp3",
+      "/audio/voice/zhiheng-2.mp3"
+    ],
+    "jiuyuan": [
+      "/audio/voice/jiuyuan-1.mp3",
+      "/audio/voice/jiuyuan-2.mp3"
+    ],
+    "qixi": [
+      "/audio/voice/qixi-1.mp3",
+      "/audio/voice/qixi-2.mp3"
+    ],
+    "keji": [
+      "/audio/voice/keji-1.mp3",
+      "/audio/voice/keji-2.mp3"
+    ],
+    "kurou": [
+      "/audio/voice/kurou-1.mp3",
+      "/audio/voice/kurou-2.mp3"
+    ],
+    "yingzi": [
+      "/audio/voice/yingzi-1.mp3",
+      "/audio/voice/yingzi-2.mp3"
+    ],
+    "fanjian": [
+      "/audio/voice/fanjian-1.mp3",
+      "/audio/voice/fanjian-2.mp3"
+    ],
+    "guose": [
+      "/audio/voice/guose-1.mp3",
+      "/audio/voice/guose-2.mp3"
+    ],
+    "liuli": [
+      "/audio/voice/liuli-1.mp3",
+      "/audio/voice/liuli-2.mp3"
+    ],
+    "qianxun": [
+      "/audio/voice/qianxun-1.mp3",
+      "/audio/voice/qianxun-2.mp3"
+    ],
+    "lianying": [
+      "/audio/voice/lianying-1.mp3",
+      "/audio/voice/lianying-2.mp3"
+    ],
+    "xiaoji": [
+      "/audio/voice/xiaoji-1.mp3",
+      "/audio/voice/xiaoji-2.mp3"
+    ],
+    "jieyin": [
+      "/audio/voice/jieyin-1.mp3",
+      "/audio/voice/jieyin-2.mp3"
+    ],
+    "qingnang": [
+      "/audio/voice/qingnang-1.mp3",
+      "/audio/voice/qingnang-2.mp3"
+    ],
+    "jijiu": [
+      "/audio/voice/jijiu-1.mp3",
+      "/audio/voice/jijiu-2.mp3"
+    ],
+    "wushuang": [
+      "/audio/voice/wushuang-1.mp3",
+      "/audio/voice/wushuang-2.mp3"
+    ],
+    "lijian": [
+      "/audio/voice/lijian-1.mp3",
+      "/audio/voice/lijian-2.mp3"
+    ],
+    "biyue": [
+      "/audio/voice/biyue-1.mp3",
+      "/audio/voice/biyue-2.mp3"
+    ]
   }
 }

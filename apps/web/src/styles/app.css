@@ -130,6 +130,18 @@ body {
 	transform: translateY(-0.8vmin);
 }
 
+/* 点名类快捷语/表情正等一个目标：金色呼吸光，跟 .selectable 的血红色区分开——
+   那是"要杀谁"，这是"要喊谁"，颜色不同玩家才不会在读秒时误以为要出杀 */
+.general.chat-aim-target {
+	cursor: pointer;
+	animation: chat-aim-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes chat-aim-pulse {
+	0%, 100% { box-shadow: var(--shadow-card), 0 0 1vmin rgba(232, 200, 106, 0.5); }
+	50% { box-shadow: var(--shadow-card), 0 0 2.4vmin rgba(232, 200, 106, 0.95); }
+}
+
 .general__art {
 	position: absolute;
 	inset: 0;
@@ -1287,28 +1299,240 @@ body {
 	100% { opacity: 0; transform: translate(-50%, -7vmin) scale(1); }
 }
 
-/* ─────────────────────── 战报 ─────────────────────── */
+/* ─────────────────────── 战报 / 聊天 ─────────────────────── */
 
-.log {
+/**
+ * 战报和聊天共用这一块屏幕位置，标签页切换——8 人局本来就挤不出多余的地方，
+ * 复用这块现成的"可滚动小面板"比另开一块风险更小（见 Table.tsx 的 LogPanel）。
+ * 聊天记录/快捷语/输入框内容更多，所以 .dock--chat 用更高的 max-height。
+ */
+.dock {
 	position: absolute;
 	right: 2vmin;
 	top: 24vmin;
 	width: 30vmin;
 	max-height: 26vmin;
+	display: flex;
+	flex-direction: column;
+	border-radius: 0.5vmin;
+	background: rgba(15, 13, 11, 0.78);
+	border: 0.12vmin solid rgba(201, 162, 39, 0.35);
+	z-index: 2;
+	overflow: hidden;
+}
+
+.dock--chat {
+	max-height: 40vmin;
+}
+
+.dock__tabs {
+	display: flex;
+	flex: 0 0 auto;
+}
+
+.dock__tab {
+	flex: 1;
+	padding: 0.5vmin 0;
+	background: rgba(15, 13, 11, 0.55);
+	border: none;
+	border-bottom: 0.15vmin solid transparent;
+	font-family: var(--font-title);
+	font-size: 1.5vmin;
+	letter-spacing: 0.15vmin;
+	color: var(--paper-300);
+	cursor: pointer;
+}
+
+.dock__tab.active {
+	color: var(--gold-100);
+	background: rgba(201, 162, 39, 0.14);
+	border-bottom-color: var(--gold-300);
+}
+
+.log {
+	flex: 1 1 auto;
 	overflow-y: auto;
 	padding: 0.8vmin;
-	border-radius: 0.5vmin;
-	background: rgba(15, 13, 11, 0.72);
-	border: 0.12vmin solid rgba(201, 162, 39, 0.35);
 	font-size: 1.5vmin;
 	line-height: 1.7;
 	color: var(--paper-200);
-	z-index: 2;
 	scrollbar-width: thin;
 }
 
 .log__line { opacity: 0.85; }
 .log__line:last-child { opacity: 1; color: var(--gold-100); }
+
+/* ── 聊天面板：记录 + 快捷语 + 表情 + 输入框，都塞在 .dock--chat 里 ── */
+.chat-dock {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	flex: 1 1 auto;
+}
+
+.chat-dock__list {
+	flex: 1 1 auto;
+	min-height: 6vmin;
+	max-height: 13vmin;
+	overflow-y: auto;
+	padding: 0.6vmin 0.8vmin;
+	font-size: 1.4vmin;
+	line-height: 1.6;
+	color: var(--paper-200);
+	scrollbar-width: thin;
+}
+
+.chat-dock__empty {
+	padding: 1vmin 0;
+	text-align: center;
+	color: var(--paper-300);
+	opacity: 0.7;
+}
+
+.chat-dock__line { margin-bottom: 0.3vmin; }
+.chat-dock__line b { color: var(--gold-100); font-weight: 400; }
+.chat-dock__to { color: var(--gold-300); }
+.chat-dock__emoji { font-size: 1.9vmin; vertical-align: middle; }
+
+/*
+ * 快捷语 + 表情合成一条横向滚动带（见 Chat.tsx 的注释）：不管加多少条，
+ * 占用的高度永远是一行，不会把下面的输入框挤出这块小面板的可视区域之外。
+ * flex-shrink:0 在每个按钮上，防止 flex 把它们压扁变形。
+ */
+.chat-dock__quick {
+	display: flex;
+	flex-wrap: nowrap;
+	gap: 0.5vmin;
+	padding: 0.5vmin 0.8vmin;
+	overflow-x: auto;
+	border-top: 0.1vmin solid rgba(201, 162, 39, 0.25);
+	scrollbar-width: thin;
+}
+
+.chat-dock__phrase {
+	flex-shrink: 0;
+	min-width: auto;
+	white-space: nowrap;
+	padding: 0.35vmin 0.9vmin;
+	font-size: 1.3vmin;
+	letter-spacing: 0;
+}
+
+/* 点名类快捷语用虚线边框跟广播类区分——不用再解释一遍"点了还要再点个人" */
+.chat-dock__phrase--aim {
+	border-style: dashed;
+}
+
+.emoji-btn {
+	flex-shrink: 0;
+	width: 3.2vmin;
+	height: 3.2vmin;
+	display: grid;
+	place-items: center;
+	font-size: 1.8vmin;
+	background: rgba(15, 13, 11, 0.6);
+	border: 0.1vmin solid var(--gold-500);
+	border-radius: 0.4vmin;
+	cursor: pointer;
+}
+
+.emoji-btn:active { background: rgba(38, 30, 20, 0.9); }
+.emoji-btn:disabled { opacity: 0.4; cursor: default; }
+
+.chat-dock__input {
+	display: flex;
+	gap: 0.5vmin;
+	padding: 0.5vmin 0.8vmin 0.7vmin;
+	border-top: 0.1vmin solid rgba(201, 162, 39, 0.25);
+}
+
+.chat-dock__input input {
+	flex: 1;
+	min-width: 0;
+	padding: 0.6vmin 0.8vmin;
+	font-size: 1.4vmin;
+	font-family: var(--font-ui);
+	color: var(--paper-100);
+	background: rgba(15, 13, 11, 0.85);
+	border: 0.12vmin solid var(--gold-500);
+	border-radius: 0.4vmin;
+	outline: none;
+}
+
+.chat-dock__input input:focus {
+	border-color: var(--gold-300);
+}
+
+.chat-dock__input .btn {
+	min-width: auto;
+	padding: 0.6vmin 1.4vmin;
+	font-size: 1.4vmin;
+	letter-spacing: 0.1vmin;
+}
+
+/* ── 瞄准提示条：点了点名类快捷语/表情之后，提示"接下来点谁" ── */
+.chat-aim {
+	position: absolute;
+	left: 50%;
+	top: 1.2vmin;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 1vmin;
+	padding: 0.7vmin 1.2vmin;
+	border-radius: 0.5vmin;
+	background: rgba(15, 13, 11, 0.94);
+	border: 0.15vmin solid var(--gold-300);
+	box-shadow: var(--shadow-lift), var(--glow-gold);
+	font-size: 1.7vmin;
+	color: var(--gold-100);
+	white-space: nowrap;
+	z-index: 9;
+}
+
+.chat-aim .btn.ghost {
+	min-width: auto;
+	padding: 0.35vmin 1vmin;
+	font-size: 1.4vmin;
+}
+
+/* ── 聊天冒泡：锚在发言者的武将牌旁边，3~4 秒淡出（写法照抄 .float 那一套） ── */
+.chat-bubble {
+	position: absolute;
+	max-width: 24vmin;
+	padding: 0.6vmin 1.1vmin;
+	border-radius: 1vmin;
+	background: rgba(15, 13, 11, 0.92);
+	border: 0.14vmin solid var(--gold-300);
+	color: var(--paper-100);
+	font-size: 1.5vmin;
+	line-height: 1.4;
+	text-align: center;
+	box-shadow: var(--shadow-lift);
+	white-space: pre-wrap;
+	word-break: break-word;
+	transform: translate(-50%, calc(-100% - 0.8vmin));
+	animation: chat-bubble-fade 3.6s ease forwards;
+}
+
+/* 上半屏的对手：气泡往上冒会被屏幕上沿裁掉，改成往下冒（见 Chat.tsx 的 below 判断） */
+.chat-bubble--below {
+	transform: translate(-50%, 0.8vmin);
+}
+
+.chat-bubble--emoji {
+	font-size: 3.4vmin;
+	padding: 0.3vmin 0.7vmin;
+	background: rgba(15, 13, 11, 0.65);
+	border-color: var(--gold-400);
+}
+
+@keyframes chat-bubble-fade {
+	0% { opacity: 0; }
+	10% { opacity: 1; }
+	78% { opacity: 1; }
+	100% { opacity: 0; }
+}
 
 /* ─────────────────────── 大厅 ─────────────────────── */
 
@@ -1522,9 +1746,25 @@ body {
 	.suit-btn__pip { font-size: 5vmin; }
 	.suit-btn__name { font-size: 2.1vmin; }
 
-	.log { font-size: 1.9vmin; width: 36vmin; top: 30vmin; max-height: 30vmin; }
+	.dock { width: 36vmin; top: 30vmin; max-height: 30vmin; }
+	.dock--chat { max-height: 46vmin; }
+	.dock__tab { font-size: 1.9vmin; padding: 0.8vmin 0; }
+	.log { font-size: 1.9vmin; }
 	.center__caption { font-size: 3vmin; }
 	.float { font-size: 4vmin; }
+
+	/* 快捷语/表情/输入框是手机横屏最主要的发言方式，触摸目标要按 ~44px 兜底
+	   （同一条规律见上面 .btn/.suit-btn 的注释），否则手指根本点不准 */
+	.chat-dock__list { font-size: 1.8vmin; max-height: 16vmin; }
+	.chat-dock__emoji { font-size: 2.4vmin; }
+	.chat-dock__phrase { font-size: 1.7vmin; padding: 0.9vmin 1.5vmin; min-height: 6.5vmin; }
+	.emoji-btn { width: 6.5vmin; height: 6.5vmin; font-size: 3vmin; }
+	.chat-dock__input input { font-size: 2vmin; padding: 1.1vmin; }
+	.chat-dock__input .btn { font-size: 1.9vmin; padding: 1vmin 2vmin; min-height: 6.5vmin; }
+	.chat-aim { font-size: 2.2vmin; padding: 1vmin 1.6vmin; }
+	.chat-aim .btn.ghost { font-size: 1.8vmin; min-height: 6vmin; padding: 0.6vmin 1.6vmin; }
+	.chat-bubble { font-size: 2vmin; max-width: 30vmin; }
+	.chat-bubble--emoji { font-size: 4.6vmin; }
 }
 
 /* ─────────────────────── 竖屏提示 ─────────────────────── */

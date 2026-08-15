@@ -59,6 +59,9 @@ const MODE_LIMITS: Record<GameSetup['mode'], { min: number; max: number }> = {
 
 const MODE_CN: Record<GameSetup['mode'], string> = { identity: '身份局', duel: '单挑' };
 
+/** 每人两条聊天之间的最短间隔（毫秒）。见 onChat 的节流逻辑 */
+const CHAT_THROTTLE_MS = 2000;
+
 function json(data: unknown, status: number): Response {
 	return new Response(JSON.stringify(data), {
 		status,
@@ -75,6 +78,11 @@ export class RoomDO implements DurableObject {
 	private deadline = 0;
 	/** 机器人专用随机流。与 g.rng 完全隔离（原因见 driveBots 注释） */
 	private botRng = new Rng(Math.floor(Math.random() * 0x7fffffff));
+	/**
+	 * 聊天节流：pid → 上一条聊天的时间戳。纯内存，DO 休眠醒来会清空——这正是想要的效果，
+	 * 节流只是防"一个人在活跃对局里连点刷屏"，不需要跨休眠记账，没必要为这个多写一张表。
+	 */
+	private lastChatAt = new Map<string, number>();
 
 	constructor(
 		private ctx: DurableObjectState,
@@ -250,7 +258,7 @@ export class RoomDO implements DurableObject {
 				case 'decide':
 					return await this.onDecide(ws, msg.seq, msg.payload);
 				case 'chat':
-					return this.onChat(ws, msg.text);
+					return this.onChat(ws, msg.text, msg.to, msg.kind);
 				case 'ping':
 					return this.send(ws, { t: 'pong' });
 			}
@@ -433,10 +441,34 @@ export class RoomDO implements DurableObject {
 		await this.driveBots();
 	}
 
-	private onChat(ws: WebSocket, text: string): void {
+	/**
+	 * 聊天完全不经过引擎、不进决策日志——它不是游戏状态的一部分，掉线/阵亡的人
+	 * 一样能发（服务端这里压根不看 this.game），观战和防作弊边界因此毫无关系。
+	 *
+	 * 节流：每人每 CHAT_THROTTLE_MS 最多一条，超了就静默丢弃 + 提示一下，不广播、
+	 * 也不占用其他人的屏幕——不这么做的话一个人手指按住就能把全场刷屏刷穿。
+	 */
+	private onChat(ws: WebSocket, text: string, to: string | undefined, kind: 'text' | 'emoji' | undefined): void {
 		const meta = this.sockMeta(ws);
-		if (!meta || !text) return;
-		this.broadcastRaw({ t: 'chat', from: meta.name, text: text.slice(0, 80) });
+		const clean = text?.slice(0, 80).trim();
+		if (!meta || !clean) return;
+
+		const now = Date.now();
+		const last = this.lastChatAt.get(meta.pid) ?? 0;
+		if (now - last < CHAT_THROTTLE_MS) {
+			return this.send(ws, { t: 'error', msg: '说话太快啦，慢一点～' });
+		}
+		this.lastChatAt.set(meta.pid, now);
+
+		this.broadcastRaw({
+			t: 'chat',
+			fromId: meta.pid,
+			from: meta.name,
+			text: clean,
+			to,
+			kind: kind === 'emoji' ? 'emoji' : 'text',
+			at: now,
+		});
 	}
 
 	// ─────────────────────── 机器人补位 ───────────────────────

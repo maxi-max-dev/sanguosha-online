@@ -32,7 +32,13 @@ export type ClientMsg =
 	| { t: 'restart' }
 	/** 提交决策。seq 必须与当前请求一致，否则服务端拒绝（防重复提交和乱序） */
 	| { t: 'decide'; seq: number; payload: DecisionPayload }
-	| { t: 'chat'; text: string }
+	/**
+	 * 聊天：快捷语/自由输入/表情共用一种报文。
+	 * `to` 有值表示对准某个人喊（服务端不校验它是不是合法 pid——聊天不影响规则，
+	 * 传错了顶多显示一个查不到昵称的空字符串，没有作弊或状态损坏的风险）；
+	 * 不填就是广播全场。`kind` 缺省当作 'text'，'emoji' 只影响前端的气泡样式。
+	 */
+	| { t: 'chat'; text: string; to?: string; kind?: 'text' | 'emoji' }
 	| { t: 'ping' };
 
 export type ServerMsg =
@@ -41,6 +47,11 @@ export type ServerMsg =
 	| { t: 'view'; view: GameView; hint?: AskHint; deadline?: number }
 	/** 增量动画事件 */
 	| { t: 'log'; entries: LogEntry[] }
-	| { t: 'chat'; from: string; text: string }
+	/**
+	 * `fromId` 是发言人的 pid（前端要靠它把气泡锚到对应的武将牌上，`from` 只是显示名，
+	 * 改名之后旧气泡不该跟着变）。`at` 由服务端盖章，不用各客户端自己的墙钟时间，
+	 * 免得几台设备时钟不同步时聊天记录排序看着乱。
+	 */
+	| { t: 'chat'; fromId: string; from: string; text: string; to?: string; kind: 'text' | 'emoji'; at: number }
 	| { t: 'error'; msg: string }
 	| { t: 'pong' };

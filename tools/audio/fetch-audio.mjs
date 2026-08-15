@@ -22,7 +22,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -248,7 +248,13 @@ async function main() {
 		}
 	}
 
-	writeFileSync(MANIFEST_PATH, JSON.stringify({ effect: manifest }, null, 2) + '\n');
+	// 合并写 manifest：effect 是这个脚本的地盘，voice 字段（tools/audio/fetch-voice.mjs
+	// 产出）照抄已有文件原样保留，避免两个脚本谁跑在谁后面互相覆盖对方那部分字段
+	const existingManifest = existsSync(MANIFEST_PATH) ? JSON.parse(readFileSync(MANIFEST_PATH, 'utf8')) : {};
+	writeFileSync(
+		MANIFEST_PATH,
+		JSON.stringify({ ...existingManifest, effect: manifest }, null, 2) + '\n',
+	);
 
 	// ─────────────────────────── 报告 ───────────────────────────
 	const outSize = dirSizeBytes(OUT_ROOT);

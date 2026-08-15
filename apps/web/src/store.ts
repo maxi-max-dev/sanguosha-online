@@ -48,7 +48,17 @@ interface State {
 	hint?: AskHint;
 	deadline?: number;
 	log: LogEntry[];
-	chat: Array<{ from: string; text: string; at: number }>;
+	chat: Array<{ fromId: string; from: string; text: string; to?: string; kind: 'text' | 'emoji'; at: number }>;
+	/** 上一条聊天是什么时候发的（客户端时钟）。只用来给按钮转灰做即时反馈，
+	 *  真正防刷屏的节流在服务端（room.ts 的 onChat），这里的窗口比服务端短一点，
+	 *  免得两边时钟没对齐时按钮明明能点了却还灰着 */
+	lastChatSentAt: number;
+	/**
+	 * "对谁说"的待定状态：点了一条点名类快捷语/表情后，还没点桌上的人来指定对象。
+	 * 放全局 store 是因为要跨组件协作——Chat 面板里设置它，Table.tsx 的武将牌
+	 * 点击事件里消费它，两边都不知道对方，唯一的公共点就是这个 store。
+	 */
+	chatAim?: { text: string; kind: 'text' | 'emoji' };
 
 	/** 当前选中的手牌 / 目标 / 出牌选项 */
 	pickedCards: number[];
@@ -87,6 +97,10 @@ interface State {
 	commit(): void;
 	/** 放弃/取消 */
 	pass(): void;
+
+	/** 发一条聊天。to 不填就是广播；带节流的即时反馈见 lastChatSentAt 的注释 */
+	sendChat(text: string, to?: string, kind?: 'text' | 'emoji'): void;
+	setChatAim(aim?: { text: string; kind: 'text' | 'emoji' }): void;
 }
 
 let ws: WebSocket | undefined;
@@ -104,6 +118,7 @@ export const useGame = create<State>((set, get) => ({
 	mode: 'identity',
 	log: [],
 	chat: [],
+	lastChatSentAt: 0,
 	pickedCards: [],
 	pickedTargets: [],
 	pickedAssign: [],
@@ -175,6 +190,7 @@ export const useGame = create<State>((set, get) => ({
 						cardMenu: undefined,
 						arrangeTop: [],
 						arrangeBottom: [],
+						chatAim: undefined,
 					});
 					break;
 				case 'view':
@@ -197,6 +213,10 @@ export const useGame = create<State>((set, get) => ({
 										cardMenu: undefined,
 										arrangeTop: ask?.kind === 'arrange' ? ask.cards.slice(0, ask.maxTop) : [],
 										arrangeBottom: ask?.kind === 'arrange' ? ask.cards.slice(ask.maxTop) : [],
+										// "点一个人来指定聊天对象"的待定状态不该跨决策轮次存活：
+										// 换了新请求还留着，玩家下一次点武将牌可能是想选真正的游戏目标，
+										// 却被当成还在瞄准的那句快捷语发出去——安全起见跟着这一批清空
+										chatAim: undefined,
 									}
 								: {}),
 						};
@@ -207,7 +227,10 @@ export const useGame = create<State>((set, get) => ({
 					break;
 				case 'chat':
 					set((s) => ({
-						chat: [...s.chat.slice(-20), { from: msg.from, text: msg.text, at: Date.now() }],
+						chat: [
+							...s.chat.slice(-29),
+							{ fromId: msg.fromId, from: msg.from, text: msg.text, to: msg.to, kind: msg.kind, at: msg.at },
+						],
 					}));
 					break;
 				case 'error':
@@ -373,6 +396,18 @@ export const useGame = create<State>((set, get) => ({
 			ask.kind === 'confirmSkill' ? { type: 'confirm' as const, yes: false } : { type: 'pass' as const };
 		s.send({ t: 'decide', seq: ask.seq, payload } as ClientMsg);
 		s.clearPick();
+	},
+
+	sendChat(text, to, kind) {
+		const s = get();
+		const now = Date.now();
+		if (now - s.lastChatSentAt < 1800) return;
+		set({ lastChatSentAt: now, chatAim: undefined });
+		s.send({ t: 'chat', text, to, kind });
+	},
+
+	setChatAim(aim) {
+		set({ chatAim: aim });
 	},
 }));
 

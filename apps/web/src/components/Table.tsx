@@ -11,8 +11,9 @@ import {
 	type PlayOption,
 } from '@sgs/engine';
 import { cardArt, generalArt, rankText, SUIT_CN, SUIT_SYMBOL } from '../art.js';
+import { ChatAimBanner, ChatBubbles, ChatLog } from './Chat.js';
 import { Onboarding } from './Onboarding.js';
-import { play, useSound } from '../sound.js';
+import { play, playVoice, useSound } from '../sound.js';
 import { cardSelectable, optionsForCard, useGame } from '../store.js';
 
 const IDENTITY_CN: Record<string, string> = {
@@ -83,7 +84,8 @@ export default function Table() {
 
 			<Pile view={view} />
 			<Center view={view} />
-			<LogPanel />
+			<LogPanel view={view} />
+			<ChatAimBanner />
 
 			{me && (
 				<>
@@ -114,6 +116,7 @@ export default function Table() {
 			<Timer />
 			<FlyingCards view={view} />
 			<Floats view={view} />
+			<ChatBubbles view={view} />
 			<SwitchGeneralBanner view={view} />
 			<SoundEffects view={view} />
 			<SoundToggle />
@@ -346,6 +349,13 @@ function soundFor(e: { kind: string; [k: string]: unknown }, view: GameView): vo
 		case 'judge':
 			play('judge');
 			break;
+		case 'skill': {
+			// 技能台词。playVoice 自己会处理"这个技能没台词"（装备技能、mashu/qicai
+			// 这类纯 mod 技能）的静默跳过，这里不用先判断有没有
+			const skill = e.skill as string | undefined;
+			if (skill) playVoice(skill);
+			break;
+		}
 		case 'die': {
 			// noname 按性别分了两条通用阵亡音效，view 里玩家自带 gender 字段，直接对上
 			const gender = view.players.find((p) => p.id === (e.who as string))?.gender;
@@ -398,7 +408,7 @@ function Seat({
 	self?: boolean;
 	onInspect?: (id: string) => void;
 }) {
-	const { pickedTargets, toggleTarget } = useGame();
+	const { pickedTargets, toggleTarget, chatAim, sendChat } = useGame();
 	const ask = view.ask;
 
 	const selectable = isTargetable(view, p.id);
@@ -414,6 +424,7 @@ function Seat({
 		p.chained && 'chained',
 		selectable && 'selectable',
 		selected && 'selected',
+		chatAim && 'chat-aim-target',
 	]
 		.filter(Boolean)
 		.join(' ');
@@ -422,8 +433,18 @@ function Seat({
 		<div
 			className={cls}
 			data-pid={p.id}
-			// 可选中时点击=指定目标；否则点击=查看这个武将的技能（公开信息）
-			onClick={() => (selectable ? toggleTarget(p.id) : p.general && onInspect?.(p.id))}
+			/*
+			 * 点名类快捷语/表情点了之后会把要说的话存进 chatAim（见 Chat.tsx），
+			 * 这时候点任何一张武将牌都是在指定"说给谁听"，优先级高于原来的
+			 * 选目标/看详情——不然玩家会以为点了没反应。真正的游戏目标选择
+			 * (selectable) 每次新请求都会清空 chatAim（见 store.ts 的 'view' 分支），
+			 * 两者不会互相踩到对方的状态。
+			 */
+			onClick={() => {
+				if (chatAim) return sendChat(chatAim.text, p.id, chatAim.kind);
+				if (selectable) return toggleTarget(p.id);
+				if (p.general) onInspect?.(p.id);
+			}}
 		>
 			{art ? (
 				<img className="general__art" src={art} alt={g?.cn ?? p.general} draggable={false} />
@@ -1198,18 +1219,36 @@ function Timer() {
 	);
 }
 
-function LogPanel() {
+/**
+ * 战报 / 聊天共用同一块屏幕位置，用标签页切换——之前这里只有战报，聊天面板
+ * 单独另找地方摆的话，8 人局本来就挤（见 CLAUDE.md 目录说明里 Table.tsx 的密度），
+ * 复用现成的这块"可滚动小面板"比新开一块地方风险更小。默认停在战报，不抢戏。
+ */
+function LogPanel({ view }: { view: GameView }) {
 	const log = useGame((s) => s.log);
-	const view = useGame((s) => s.view);
-	if (!view) return null;
+	const [tab, setTab] = useState<'log' | 'chat'>('log');
 	const lines = log.map((e) => describe(e, view)).filter(Boolean).slice(-12);
 	return (
-		<div className="log">
-			{lines.map((l, i) => (
-				<div className="log__line" key={i}>
-					{l}
+		<div className={`dock${tab === 'chat' ? ' dock--chat' : ''}`}>
+			<div className="dock__tabs">
+				<button className={`dock__tab${tab === 'log' ? ' active' : ''}`} onClick={() => setTab('log')}>
+					战报
+				</button>
+				<button className={`dock__tab${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>
+					聊天
+				</button>
+			</div>
+			{tab === 'log' ? (
+				<div className="log">
+					{lines.map((l, i) => (
+						<div className="log__line" key={i}>
+							{l}
+						</div>
+					))}
 				</div>
-			))}
+			) : (
+				<ChatLog view={view} />
+			)}
 		</div>
 	);
 }

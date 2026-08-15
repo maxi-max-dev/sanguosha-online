@@ -10,7 +10,7 @@
 import { create } from 'zustand';
 import manifest from './audio-manifest.json';
 
-type Manifest = { effect: Record<string, string | null> };
+type Manifest = { effect: Record<string, string | null>; voice: Record<string, string[] | null> };
 const m = manifest as Manifest;
 
 export type SoundKey = keyof Manifest['effect'];
@@ -46,10 +46,12 @@ function getCtx(): AudioContext {
 }
 
 const buffers = new Map<string, AudioBuffer>();
+// 技能台词：一个技能可能有多条台词，播放时随机挑一条，所以按 skillId 存数组而不是单个 buffer
+const voiceBuffers = new Map<string, AudioBuffer[]>();
 const lastPlayedAt = new Map<string, number>();
 
 /**
- * 预加载 manifest 里所有音效。调用方在 App 挂载时调一次即可 —— 越早调用，
+ * 预加载 manifest 里所有音效 + 技能台词。调用方在 App 挂载时调一次即可 —— 越早调用，
  * 到真正进桌开始出牌时就越不可能出现"还没解码完"的情况。
  * 用 Map 天然去重，重复调用是幂等的。
  */
@@ -66,6 +68,21 @@ export function preloadSounds(): void {
 			.catch(() => {
 				// 音效本来就是锦上添花的表现层，一个文件加载失败不该影响游戏本身，静默跳过
 			});
+	}
+	for (const [skillId, urls] of Object.entries(m.voice)) {
+		if (!urls || urls.length === 0 || voiceBuffers.has(skillId)) continue;
+		voiceBuffers.set(skillId, []);
+		for (const url of urls) {
+			fetch(url)
+				.then((r) => r.arrayBuffer())
+				.then((buf) => c.decodeAudioData(buf))
+				.then((decoded) => {
+					voiceBuffers.get(skillId)?.push(decoded);
+				})
+				.catch(() => {
+					// 同上：缺一条台词不该影响游戏，静默跳过
+				});
+		}
 	}
 }
 
@@ -99,6 +116,35 @@ export function play(key: SoundKey): void {
 
 	const buf = buffers.get(key);
 	if (!buf) return;
+	const c = getCtx();
+	const src = c.createBufferSource();
+	src.buffer = buf;
+	src.connect(c.destination);
+	src.start(0);
+}
+
+/**
+ * 播放一个技能的发动台词，多条台词随机挑一条。
+ *
+ * 参数是裸 string 而不是像 play() 那样约束成 manifest 的 key —— 战报日志里的
+ * skill 字段什么技能 id 都可能出现（装备技能、以后新增的技能……），台词 manifest
+ * 只覆盖了标准包 40 个技能。查不到就是没这条台词，跟静音/没解锁/没解码完一样，
+ * 直接跳过而不是报错，也不能拿别的技能的台词顶上去。
+ */
+export function playVoice(skill: string): void {
+	if (useSound.getState().muted) return;
+	if (!unlocked) return;
+
+	const key = `voice:${skill}`;
+	const now = performance.now();
+	const last = lastPlayedAt.get(key) ?? -Infinity;
+	if (now - last < THROTTLE_MS) return;
+
+	const list = voiceBuffers.get(skill);
+	if (!list || list.length === 0) return;
+	lastPlayedAt.set(key, now);
+
+	const buf = list[Math.floor(Math.random() * list.length)];
 	const c = getCtx();
 	const src = c.createBufferSource();
 	src.buffer = buf;
