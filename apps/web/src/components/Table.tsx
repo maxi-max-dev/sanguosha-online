@@ -1226,8 +1226,20 @@ function Timer() {
  */
 function LogPanel({ view }: { view: GameView }) {
 	const log = useGame((s) => s.log);
+	const chat = useGame((s) => s.chat);
 	const [tab, setTab] = useState<'log' | 'chat'>('log');
 	const lines = log.map((e) => describe(e, view)).filter(Boolean).slice(-12);
+
+	/**
+	 * 未读红点。停在战报页时朋友喊你一句是完全看不出来的 ——
+	 * 一个没人注意到的聊天等于没做。切到聊天页就把已读位置推到最新。
+	 */
+	const [readCount, setReadCount] = useState(chat.length);
+	const unread = tab === 'chat' ? 0 : Math.max(0, chat.length - readCount);
+	useEffect(() => {
+		if (tab === 'chat') setReadCount(chat.length);
+	}, [tab, chat.length]);
+
 	return (
 		<div className={`dock${tab === 'chat' ? ' dock--chat' : ''}`}>
 			<div className="dock__tabs">
@@ -1236,6 +1248,7 @@ function LogPanel({ view }: { view: GameView }) {
 				</button>
 				<button className={`dock__tab${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>
 					聊天
+					{unread > 0 && <span className="dock__unread">{unread > 9 ? '9+' : unread}</span>}
 				</button>
 			</div>
 			{tab === 'log' ? (

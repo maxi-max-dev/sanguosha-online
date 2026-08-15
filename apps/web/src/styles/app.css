@@ -2042,3 +2042,30 @@ body {
 @keyframes switch-banner-out {
 	to { opacity: 0; }
 }
+
+/* 未读消息红点。停在战报页时朋友喊你一句原本完全看不出来 */
+.dock__unread {
+	display: inline-grid;
+	place-items: center;
+	min-width: 2.2vmin;
+	height: 2.2vmin;
+	margin-left: 0.6vmin;
+	padding: 0 0.5vmin;
+	border-radius: 1.1vmin;
+	background: var(--blood);
+	color: #fff;
+	font-size: 1.4vmin;
+	font-family: var(--font-ui);
+	line-height: 1;
+	vertical-align: middle;
+	animation: unread-pop 0.24s ease-out;
+}
+
+@keyframes unread-pop {
+	from { transform: scale(0.4); opacity: 0; }
+	to { transform: scale(1); opacity: 1; }
+}
+
+@media (max-height: 520px) {
+	.dock__unread { min-width: 2.8vmin; height: 2.8vmin; font-size: 1.8vmin; }
+}
