@@ -455,9 +455,29 @@ export class Game {
 		let n = base;
 		for (const { p, skill } of this.mods()) {
 			if (p.id !== ev.source || !skill.mods!.shanNeeded) continue;
-			n = skill.mods!.shanNeeded(this, p, ev, n);
+			const after = skill.mods!.shanNeeded(this, p, ev, n);
+			if (after !== n) this.noteSkill(p.id, skill.id);
+			n = after;
 		}
 		return Math.max(1, n);
+	}
+
+	/**
+	 * 记一条"某人的技能生效了"的日志，同一回合同一技能只记一次。
+	 *
+	 * 纯 `mods` 类技能（咆哮、空城、谦逊、无双）不走 `trigger()`，也就从不产生
+	 * `kind:'skill'` 日志 —— 结果是前端既播不了台词、战报里也完全看不出
+	 * "刚才是吕布的无双让你要出两张闪"。对玩家来说技能等于隐形的。
+	 *
+	 * 只往 `log` 里追加，**不碰 `state`**，所以对重放确定性没有影响
+	 * （重放时会照样再生成一遍）。去重是必要的：这些 mod 在枚举合法目标时
+	 * 会被反复调用，不去重会把战报和音效刷爆。
+	 */
+	noteSkill(playerId: string, skillId: string): void {
+		const key = `turn:noted:${skillId}`;
+		if (this.getFlag(playerId, key) > 0) return;
+		this.addFlag(playerId, key, 1);
+		this.pushLog({ kind: 'skill', who: playerId, skill: skillId, passive: true });
 	}
 
 	/** 【决斗】中该角色每次需要打出几张【杀】（无双）。修正器同样挂在对手身上 */
@@ -486,6 +506,10 @@ export class Game {
 		const target = this.player(targetId);
 		for (const { p, skill } of this.mods()) {
 			if (p.id !== targetId || !skill.mods!.targetable) continue;
+			// 这里**不要**报"技能生效了"：本方法在枚举合法目标时就会被调用，
+			// 也就是只要有人在算"我能打谁"，空城/谦逊就会播报一次，哪怕根本没人
+			// 对他出牌。这类"你选不了他"的效果，正确的反馈是那个人点不动，
+			// 不是喊一句台词。只有和真实事件绑定的被动技才 noteSkill。
 			if (!skill.mods!.targetable(this, target, use, sourceId)) return false;
 		}
 		const def = this.registry.cards[use.use.name];
@@ -973,6 +997,17 @@ export class Game {
 
 		if (use.cards.length) await this.moveCards(use.cards, { zone: 'processing' }, 'use', source);
 		this.pushLog({ kind: 'use', source, name: use.name, nature: use.nature, cards: use.cards, targets });
+
+		// 咆哮这类"解除次数限制"的锁定技：只有真的打出第二张【杀】时才算生效。
+		// 挂在这里而不是 shaLimit()，因为后者在枚举可出的牌时就会被反复调用，
+		// 那时技能其实还没起作用，提前报出来会变成"每回合一响"的噪音。
+		if (use.name === 'sha' || use.name.endsWith('sha')) {
+			if (this.getFlag(source, 'turn:shaUsed') >= 1) {
+				for (const { p, skill } of this.mods()) {
+					if (p.id === source && skill.mods!.shaLimit) this.noteSkill(source, skill.id);
+				}
+			}
+		}
 
 		await this.trigger('beforeUse', ev);
 		await this.trigger('onUse', ev);
