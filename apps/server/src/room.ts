@@ -13,6 +13,7 @@
 
 import {
 	ai,
+	DEFAULT_PACKS,
 	DuelGame,
 	IdentityGame,
 	GameOver,
@@ -359,7 +360,7 @@ export class RoomDO implements DurableObject {
 		const setup: GameSetup = {
 			mode,
 			players: seats.map((s) => ({ id: s.pid, nickname: s.name })),
-			packs: ['standard'],
+			packs: DEFAULT_PACKS,
 		};
 		this.setMeta('seed', String(seed));
 		this.setMeta('setup', JSON.stringify(setup));

@@ -24,7 +24,21 @@
     "sunshangxiang": "/art/character/sunshangxiang.webp",
     "huatuo": "/art/character/huatuo.webp",
     "lvbu": "/art/character/lvbu.webp",
-    "diaochan": "/art/character/diaochan.webp"
+    "diaochan": "/art/character/diaochan.webp",
+    "old_caoren": "/art/character/old_caoren.webp",
+    "re_xiahouyuan": "/art/character/re_xiahouyuan.webp",
+    "re_huangzhong": "/art/character/re_huangzhong.webp",
+    "re_weiyan": "/art/character/re_weiyan.webp",
+    "xiaoqiao": "/art/character/xiaoqiao.webp",
+    "sp_zhangjiao": "/art/character/sp_zhangjiao.webp",
+    "dianwei": "/art/character/dianwei.webp",
+    "xunyu": "/art/character/xunyu.webp",
+    "pangtong": "/art/character/pangtong.webp",
+    "sp_zhugeliang": "/art/character/sp_zhugeliang.webp",
+    "taishici": "/art/character/taishici.webp",
+    "yanwen": "/art/character/yanwen.webp",
+    "re_yuanshao": "/art/character/re_yuanshao.webp",
+    "re_pangde": "/art/character/re_pangde.webp"
   },
   "card": {
     "huosha": null,

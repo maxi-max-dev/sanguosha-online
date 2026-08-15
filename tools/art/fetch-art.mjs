@@ -52,13 +52,24 @@ const FORCE = process.argv.includes('--force');
 
 // ─────────────────────────── 清单 ───────────────────────────
 
-/** 标准包 25 将。id 就是 noname 的文件名（image/character/<id>.jpg）。 */
+/**
+ * 全部武将。id 就是 noname 的文件名（image/character/<id>.jpg），
+ * 和 `packages/engine/src/generals.ts` 里的 id 一一对应 —— 风火两包沿用 noname 的
+ * `re_` / `old_` / `sp_` 前缀正是为了这一条（逐个 `git ls-tree` 核实过图都在）。
+ */
 const CHARACTER_IDS = [
+	// 标准包 25 将
 	'caocao', 'simayi', 'xiahoudun', 'zhangliao', 'xuzhu',
 	'guojia', 'zhenji', 'liubei', 'guanyu', 'zhangfei',
 	'zhugeliang', 'zhaoyun', 'machao', 'huangyueying', 'sunquan',
 	'ganning', 'lvmeng', 'huanggai', 'zhouyu', 'daqiao',
 	'luxun', 'sunshangxiang', 'huatuo', 'lvbu', 'diaochan',
+	// 风包（神话再临·风）
+	'old_caoren', 're_xiahouyuan', 're_huangzhong', 're_weiyan',
+	'xiaoqiao', 'sp_zhangjiao',
+	// 火包（神话再临·火）
+	'dianwei', 'xunyu', 'pangtong', 'sp_zhugeliang',
+	'taishici', 'yanwen', 're_yuanshao', 're_pangde',
 ];
 
 /**

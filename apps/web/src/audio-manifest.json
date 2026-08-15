@@ -166,6 +166,90 @@
     "biyue": [
       "/audio/voice/biyue-1.mp3",
       "/audio/voice/biyue-2.mp3"
+    ],
+    "jushou": [
+      "/audio/voice/jushou-1.mp3",
+      "/audio/voice/jushou-2.mp3"
+    ],
+    "xinshensu": [
+      "/audio/voice/xinshensu-1.mp3",
+      "/audio/voice/xinshensu-2.mp3"
+    ],
+    "qiangxix": [
+      "/audio/voice/qiangxix-1.mp3",
+      "/audio/voice/qiangxix-2.mp3"
+    ],
+    "quhu": [
+      "/audio/voice/quhu-1.mp3",
+      "/audio/voice/quhu-2.mp3"
+    ],
+    "jieming": [
+      "/audio/voice/jieming-1.mp3",
+      "/audio/voice/jieming-2.mp3"
+    ],
+    "xinliegong": [
+      "/audio/voice/xinliegong-1.mp3",
+      "/audio/voice/xinliegong-2.mp3"
+    ],
+    "xinkuanggu": [
+      "/audio/voice/xinkuanggu-1.mp3",
+      "/audio/voice/xinkuanggu-2.mp3"
+    ],
+    "qimou": [
+      "/audio/voice/qimou-1.mp3",
+      "/audio/voice/qimou-2.mp3"
+    ],
+    "lianhuan": [
+      "/audio/voice/lianhuan-1.mp3",
+      "/audio/voice/lianhuan-2.mp3"
+    ],
+    "oldniepan": [
+      "/audio/voice/oldniepan-1.mp3",
+      "/audio/voice/oldniepan-2.mp3"
+    ],
+    "bazhen": [
+      "/audio/voice/bazhen-1.mp3",
+      "/audio/voice/bazhen-2.mp3"
+    ],
+    "huoji": [
+      "/audio/voice/huoji-1.mp3",
+      "/audio/voice/huoji-2.mp3"
+    ],
+    "kanpo": [
+      "/audio/voice/kanpo-1.mp3",
+      "/audio/voice/kanpo-2.mp3"
+    ],
+    "retianxiang": [
+      "/audio/voice/retianxiang-1.mp3",
+      "/audio/voice/retianxiang-2.mp3"
+    ],
+    "tianyi": [
+      "/audio/voice/tianyi-1.mp3",
+      "/audio/voice/tianyi-2.mp3"
+    ],
+    "releiji": [
+      "/audio/voice/releiji-1.mp3",
+      "/audio/voice/releiji-2.mp3"
+    ],
+    "guidao": [
+      "/audio/voice/guidao-1.mp3",
+      "/audio/voice/guidao-2.mp3"
+    ],
+    "shuangxiong": [
+      "/audio/voice/shuangxiong-1.mp3",
+      "/audio/voice/shuangxiong-2.mp3"
+    ],
+    "luanji": [
+      "/audio/voice/luanji-1.mp3",
+      "/audio/voice/luanji-2.mp3"
+    ],
+    "xueyi": [
+      "/audio/voice/xueyi-1.mp3",
+      "/audio/voice/xueyi-2.mp3"
+    ],
+    "jianchu": [
+      "/audio/voice/jianchu-1.mp3",
+      "/audio/voice/jianchu-2.mp3"
     ]
   }
 }

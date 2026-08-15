@@ -12,6 +12,7 @@
  */
 
 import { decide } from '../ai/simple.js';
+import { DEFAULT_PACKS } from '../generals.js';
 import { GameOver, type Game } from '../game.js';
 import { DuelGame } from '../modes/duel.js';
 import { IdentityGame } from '../modes/identity.js';
@@ -129,7 +130,7 @@ export async function soak(
 					id: `p${k}`,
 					nickname: `玩家${k}`,
 				})),
-				packs: ['standard'],
+				packs: DEFAULT_PACKS,
 			},
 			decisions: [],
 		};
@@ -179,10 +180,18 @@ export async function soak(
 // 直接运行时的 CLI
 const isMain = process.argv[1]?.endsWith('soak.ts');
 if (isMain) {
-	const games = Number(process.argv[2] ?? 200);
-	const players = Number(process.argv[3] ?? 5);
-	const driver = (process.argv[4] === 'ai' ? 'ai' : 'random') as 'random' | 'ai';
-	const mode = (process.argv[5] === 'duel' ? 'duel' : 'identity') as 'identity' | 'duel';
+	// `pnpm --filter @sgs/engine soak 500 5` 会把 "500 5" 当**一个**参数传进来，
+	// 于是 Number("500 5") = NaN，循环一次都不跑却照样打印"✅ 无崩溃"。
+	// 在入口处按空白拆一次，两种调用方式（pnpm 和 tsx 直调）就都对了。
+	const argv = process.argv.slice(2).flatMap((s) => s.split(/\s+/)).filter(Boolean);
+	const games = Number(argv[0] ?? 200);
+	const players = Number(argv[1] ?? 5);
+	const driver = (argv[2] === 'ai' ? 'ai' : 'random') as 'random' | 'ai';
+	const mode = (argv[3] === 'duel' ? 'duel' : 'identity') as 'identity' | 'duel';
+	if (!Number.isFinite(games) || games <= 0 || !Number.isFinite(players) || players <= 0) {
+		console.error(`参数不合法：局数=${argv[0]} 人数=${argv[1]}`);
+		process.exit(1);
+	}
 	const n = mode === 'duel' ? 2 : players;
 	const t0 = Date.now();
 	const r = await soak(games, players, 1, driver, mode);
@@ -201,6 +210,12 @@ if (isMain) {
 			console.log(`\n  seed=${f.seed}  决策数=${f.decisions.length}`);
 			console.log(`  ${f.error.split('\n').join('\n  ')}`);
 		}
+		process.exit(1);
+	}
+	// 跑不满就不算过。少跑一局都可能是崩在第 5 个失败样本处提前 break 了，
+	// 而"跑了 0 局"以前会一路走到这里打印绿灯 —— 验收关卡形同虚设。
+	if (r.games < games) {
+		console.log(`\n❌ 只跑完 ${r.games}/${games} 局`);
 		process.exit(1);
 	}
 	console.log('\n✅ 无崩溃');

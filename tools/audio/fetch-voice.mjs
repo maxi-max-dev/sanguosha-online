@@ -124,6 +124,36 @@ const SKILL_VOICE_MAP = {
 	wushuang: ['wushuang1', 'wushuang2'],
 	lijian: ['lijian1', 'lijian2'],
 	biyue: ['biyue1', 'biyue2'],
+
+	// ── 风包 / 火包 ──
+	// 源文件名同样是读 character/shenhua/skill.js 的 audio 字段推出来、再逐个
+	// `git ls-tree audio/skill` 核实存在的，不是按 id 猜的。三种情况：
+	//   audio: 2        → <技能id>1 / <技能id>2
+	//   audio: 'xxx'    → xxx1 / xxx2（技能 id 改过名，台词还挂在老名字下：
+	//                     xinliegong→liegong、xinkuanggu→kuanggu、oldniepan→niepan、
+	//                     retianxiang→tianxiang、qiangxix→qiangxi）
+	//   audio: 'xxx1'   → xxx11 / xxx12（子技能 id + 序号拼接，神速就是这种）
+	jushou: ['jushou1', 'jushou2'],
+	xinshensu: ['shensu11', 'shensu12'],
+	qiangxix: ['qiangxi1', 'qiangxi2'],
+	quhu: ['quhu1', 'quhu2'],
+	jieming: ['jieming1', 'jieming2'],
+	xinliegong: ['liegong1', 'liegong2'],
+	xinkuanggu: ['kuanggu1', 'kuanggu2'],
+	qimou: ['qimou1', 'qimou2'],
+	lianhuan: ['lianhuan1', 'lianhuan2'],
+	oldniepan: ['niepan1', 'niepan2'],
+	bazhen: ['bazhen1', 'bazhen2'],
+	huoji: ['huoji1', 'huoji2'],
+	kanpo: ['kanpo1', 'kanpo2'],
+	retianxiang: ['tianxiang1', 'tianxiang2'],
+	tianyi: ['tianyi1', 'tianyi2'],
+	releiji: ['releiji1', 'releiji2'],
+	guidao: ['guidao1', 'guidao2'],
+	shuangxiong: ['shuangxiong1', 'shuangxiong2'],
+	luanji: ['luanji1', 'luanji2'],
+	xueyi: ['xueyi1', 'xueyi2'],
+	jianchu: ['jianchu1', 'jianchu2'],
 };
 
 // ─────────────────────────── 小工具 ───────────────────────────

@@ -1,16 +1,20 @@
 /**
- * 魏势力技能：曹操 / 司马懿 / 夏侯惇 / 张辽 / 许褚 / 郭嘉 / 甄姬。
+ * 魏势力技能：曹操 / 司马懿 / 夏侯惇 / 张辽 / 许褚 / 郭嘉 / 甄姬（标准包）；
+ * 曹仁 / 夏侯渊 / 典韦 / 荀彧（风 / 火扩充包，见 generals.ts 的 pack 字段）。
  */
 
 import type { SkillDef } from '../defs.js';
 import type { AskForCardEvent, Game } from '../game.js';
+import { markLimit } from '../options.js';
 import {
 	suitColor,
 	type DamageEvent,
 	type DrawNumEvent,
 	type JudgeEvent,
 	type PhaseEvent,
+	type PlayerState,
 } from '../types.js';
+import { pindian } from './util.js';
 
 // ─────────────────────────── 曹操 ───────────────────────────
 
@@ -338,6 +342,235 @@ const qingguo: SkillDef = {
 	},
 };
 
+// ─────────────────────────── 曹仁（风包） ───────────────────────────
+
+const jushou: SkillDef = {
+	id: 'jushou',
+	cn: '据守',
+	desc: '结束阶段，你可以摸三张牌，然后将你的武将牌翻面（下个回合开始时跳过）。',
+	triggers: [
+		{
+			timing: 'phaseStart',
+			can(g, self, ev: PhaseEvent) {
+				return ev.who === self.id && ev.phase === 'end';
+			},
+			// 不在这里再问一次"是否发动"：trigger() 外层已经为非锁定技问过一次通用确认框了，
+			// 这里问的是"要不要摸三张牌并翻面"——和外层是同一个问题，不能重复问
+			async run(g, self) {
+				await g.drawCards(self.id, 3, 'jushou');
+				self.turnedOver = true;
+			},
+		},
+	],
+};
+
+// ─────────────────────────── 夏侯渊（风包） ───────────────────────────
+
+const xinshensu: SkillDef = {
+	id: 'xinshensu',
+	cn: '神速',
+	desc: '回合开始时，你可以选择至多三项：1. 跳过判定阶段和摸牌阶段；2. 跳过出牌阶段并弃置一张装备牌；3. 跳过弃牌阶段并将武将牌翻面。每选择一项，视为你对一名其他角色使用一张没有距离限制的【杀】。',
+	// 三个子选项本身就是三次独立的"是否"询问，不需要外层再套一次笼统的"是否发动神速"确认框
+	tags: ['locked'],
+	triggers: [
+		{
+			timing: 'turnStart',
+			can(g, self, ev: { who: string }) {
+				return ev.who === self.id && g.othersFrom(self.id).length > 0;
+			},
+			async run(g, self) {
+				const others = g.othersFrom(self.id).map((p) => p.id);
+
+				const fireVirtualSha = async () => {
+					const targets = await g.askPlayers(self.id, '神速：选择一名角色使用一张无距离限制的【杀】', others, 1, 1, true);
+					if (targets.length === 0) return;
+					await g.useCard(self.id, { name: 'sha', cards: [], viaSkill: 'xinshensu' }, targets);
+				};
+
+				const skipJudgeDraw = await g.askConfirm(self.id, 'xinshensu', '神速：是否跳过判定阶段和摸牌阶段？');
+				if (skipJudgeDraw) {
+					g.setFlag(self.id, 'turn:xinshensuSkipJudgeDraw', 1);
+					await fireVirtualSha();
+				}
+
+				const equipIds = Object.values(self.equip).filter((x): x is number => typeof x === 'number');
+				if (equipIds.length > 0) {
+					const skipPlay = await g.askConfirm(self.id, 'xinshensu', '神速：是否跳过出牌阶段并弃置一张装备牌？');
+					if (skipPlay) {
+						const picked = await g.askCards(
+							self.id,
+							'神速：弃置一张装备牌',
+							equipIds.map((id) => ({ id })),
+							1,
+							1,
+							true,
+						);
+						if (picked.length) {
+							await g.discardCards(picked, 'xinshensu', self.id);
+							g.setFlag(self.id, 'turn:xinshensuSkipPlay', 1);
+							await fireVirtualSha();
+						}
+					}
+				}
+
+				const skipDiscard = await g.askConfirm(self.id, 'xinshensu', '神速：是否跳过弃牌阶段并翻面？');
+				if (skipDiscard) {
+					g.setFlag(self.id, 'turn:xinshensuSkipDiscard', 1);
+					await fireVirtualSha();
+				}
+			},
+		},
+		{
+			timing: 'phaseStart',
+			can(g, self, ev: PhaseEvent) {
+				if (ev.who !== self.id) return false;
+				if (ev.phase === 'judge' || ev.phase === 'draw') return g.getFlag(self.id, 'turn:xinshensuSkipJudgeDraw') > 0;
+				if (ev.phase === 'play') return g.getFlag(self.id, 'turn:xinshensuSkipPlay') > 0;
+				if (ev.phase === 'discard') return g.getFlag(self.id, 'turn:xinshensuSkipDiscard') > 0;
+				return false;
+			},
+			async run(g, self, ev: PhaseEvent) {
+				ev.skipped = true;
+				// "翻面"是弃牌阶段那一项的代价：本回合到这里已经没有后续阶段了，直接标记翻面即可
+				if (ev.phase === 'discard') self.turnedOver = true;
+			},
+		},
+	],
+};
+
+// ─────────────────────────── 典韦（火包） ───────────────────────────
+
+/** 强袭本回合已经命中过的目标（存成逗号分隔的 id 列表，flags 只存 number/string/boolean，没有数组） */
+function qiangxiHit(self: PlayerState): string[] {
+	const raw = self.flags['turn:qiangxiHit'];
+	return typeof raw === 'string' && raw.length > 0 ? raw.split(',') : [];
+}
+
+function qiangxiCandidates(g: Game, self: PlayerState): string[] {
+	const hit = new Set(qiangxiHit(self));
+	return g
+		.alivePlayers()
+		.filter((p) => p.id !== self.id && g.inAttackRange(self.id, p.id) && !hit.has(p.id))
+		.map((p) => p.id);
+}
+
+const qiangxix: SkillDef = {
+	id: 'qiangxix',
+	cn: '强袭',
+	desc: '出牌阶段限两次，你可以选择一项：1. 失去1点体力；2. 弃置一张武器牌；然后对攻击范围内一名本阶段未被强袭过的其他角色造成1点伤害。',
+	active: {
+		limit: 2,
+		can(g, self) {
+			if (self.hp <= 1 && self.equip.weapon === undefined) return false;
+			return qiangxiCandidates(g, self).length > 0;
+		},
+		async run(g, self) {
+			const candidates = qiangxiCandidates(g, self);
+			if (candidates.length === 0) return;
+			const canLoseHp = self.hp > 1;
+			const canDiscardWeapon = self.equip.weapon !== undefined;
+			let useWeapon = canDiscardWeapon && !canLoseHp;
+			if (canLoseHp && canDiscardWeapon) {
+				const choice = await g.askOption(self.id, '强袭：请选择失去1点体力，还是弃置一张武器牌', [
+					{ id: 'hp', label: '失去1点体力' },
+					{ id: 'weapon', label: '弃置一张武器牌' },
+				]);
+				useWeapon = choice === 'weapon';
+			} else if (!canLoseHp && !canDiscardWeapon) {
+				return;
+			}
+			const targets = await g.askPlayers(self.id, '强袭：选择攻击范围内的一名其他角色', candidates, 1, 1, true);
+			if (targets.length === 0) return;
+			markLimit(g, self, 'qiangxix', 2);
+			if (useWeapon) {
+				await g.discardCards([self.equip.weapon!], 'qiangxix', self.id);
+			} else {
+				await g.loseHp(self.id, 1, 'qiangxix');
+				if (!self.alive) return;
+			}
+			g.setFlag(self.id, 'turn:qiangxiHit', [...qiangxiHit(self), targets[0]].join(','));
+			await g.damage({ source: self.id, target: targets[0], amount: 1, nature: undefined });
+		},
+	},
+};
+
+// ─────────────────────────── 荀彧（火包） ───────────────────────────
+
+const quhu: SkillDef = {
+	id: 'quhu',
+	cn: '驱虎',
+	desc: '出牌阶段限一次，你可以与一名体力值大于你的角色拼点。若你赢，该角色对其攻击范围内由你指定的另一名角色造成1点伤害；若你没赢，该角色对你造成1点伤害。',
+	active: {
+		limit: 'turn',
+		can(g, self) {
+			return (
+				self.hand.length > 0 &&
+				g.alivePlayers().some((p) => p.id !== self.id && p.hp > self.hp && p.hand.length > 0)
+			);
+		},
+		async run(g, self) {
+			const candidates = g
+				.alivePlayers()
+				.filter((p) => p.id !== self.id && p.hp > self.hp && p.hand.length > 0)
+				.map((p) => p.id);
+			const picked = await g.askPlayers(self.id, '驱虎：选择一名体力值大于你的角色拼点', candidates, 1, 1, true);
+			if (picked.length === 0) return;
+			const opponent = picked[0];
+			markLimit(g, self, 'quhu', 'turn');
+			const result = await pindian(g, self.id, opponent, 'quhu');
+			if (!result) return;
+			const op = g.player(opponent);
+			if (result.initiatorWins) {
+				const victims = g
+					.alivePlayers()
+					.filter((p) => p.id !== opponent && g.inAttackRange(opponent, p.id))
+					.map((p) => p.id);
+				if (victims.length === 0) return;
+				const victim = await g.askPlayers(
+					self.id,
+					`驱虎：指定 ${op.nickname} 攻击范围内的一名角色，令其对其造成1点伤害`,
+					victims,
+					1,
+					1,
+					true,
+				);
+				if (victim.length === 0) return;
+				await g.damage({ source: opponent, target: victim[0], amount: 1, nature: undefined });
+			} else {
+				await g.damage({ source: opponent, target: self.id, amount: 1, nature: undefined });
+			}
+		},
+	},
+};
+
+const jieming: SkillDef = {
+	id: 'jieming',
+	cn: '节命',
+	desc: '当你受到伤害后，你可以令一名角色将手牌摸至体力上限（至多5张）。',
+	triggers: [
+		{
+			timing: 'afterDamaged',
+			can(g, self, ev: DamageEvent) {
+				return ev.target === self.id && ev.amount > 0;
+			},
+			async run(g, self) {
+				const targets = await g.askPlayers(
+					self.id,
+					'节命：选择一名角色将手牌摸至体力上限（至多5张）',
+					g.alivePlayers().map((p) => p.id),
+					1,
+					1,
+					true,
+				);
+				if (targets.length === 0) return;
+				const t = g.player(targets[0]);
+				const upTo = Math.min(5, t.maxHp);
+				if (t.hand.length < upTo) await g.drawCards(t.id, upTo - t.hand.length, 'jieming');
+			},
+		},
+	],
+};
+
 export const WEI_SKILLS: Record<string, SkillDef> = {
 	jianxiong,
 	hujia,
@@ -350,4 +583,9 @@ export const WEI_SKILLS: Record<string, SkillDef> = {
 	yiji,
 	luoshen,
 	qingguo,
+	jushou,
+	xinshensu,
+	qiangxix,
+	quhu,
+	jieming,
 };

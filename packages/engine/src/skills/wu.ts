@@ -1,5 +1,6 @@
 /**
- * 吴势力技能：孙权 / 甘宁 / 吕蒙 / 黄盖 / 周瑜 / 大乔 / 陆逊 / 孙尚香。
+ * 吴势力技能：孙权 / 甘宁 / 吕蒙 / 黄盖 / 周瑜 / 大乔 / 陆逊 / 孙尚香（标准包）；
+ * 小乔 / 太史慈（风 / 火扩充包，见 generals.ts 的 pack 字段）。
  */
 
 import type { SkillDef } from '../defs.js';
@@ -8,10 +9,12 @@ import {
 	suitColor,
 	type CardMoveEvent,
 	type CardUse,
+	type DamageEvent,
 	type DrawNumEvent,
 	type PhaseEvent,
 	type UseEvent,
 } from '../types.js';
+import { pindian } from './util.js';
 
 // ─────────────────────────── 孙权 ───────────────────────────
 
@@ -331,6 +334,109 @@ const jieyin: SkillDef = {
 	},
 };
 
+// ─────────────────────────── 小乔（风包） ───────────────────────────
+
+const retianxiang: SkillDef = {
+	id: 'retianxiang',
+	cn: '天香',
+	desc: '当你受到伤害时，你可以弃置一张红桃手牌，防止此次伤害并选择一名其他角色，然后你选择一项：1. 令其受到伤害来源对其造成的1点伤害，然后摸X张牌（X为其已损失体力值且至多为5）；2. 令其失去1点体力，然后获得你弃置的牌。',
+	triggers: [
+		{
+			timing: 'beforeDamage',
+			can(g, self, ev: DamageEvent) {
+				if (ev.target !== self.id || ev.cancelled || ev.amount <= 0) return false;
+				if (!self.hand.some((id) => g.card(id).suit === 'heart')) return false;
+				return g.othersFrom(self.id).length > 0;
+			},
+			async run(g, self, ev: DamageEvent) {
+				const hearts = self.hand.filter((id) => g.card(id).suit === 'heart');
+				const picked = await g.askCards(
+					self.id,
+					'天香：弃置一张红桃手牌，防止此次伤害',
+					hearts.map((id) => ({ id })),
+					1,
+					1,
+					true,
+				);
+				if (picked.length === 0) return;
+				const targets = await g.askPlayers(
+					self.id,
+					'天香：选择一名其他角色承接此次伤害',
+					g.othersFrom(self.id).map((p) => p.id),
+					1,
+					1,
+					true,
+				);
+				if (targets.length === 0) return; // 中途放弃：牌没弃，伤害照常
+				// 先落防止再结算转移，转移出去的那 1 点伤害才不会被同一个事件带着回来
+				ev.cancelled = true;
+				await g.discardCards(picked, 'retianxiang', self.id);
+
+				const t = g.player(targets[0]);
+				const choice = await g.askOption(self.id, `天香：选择对 ${t.nickname} 的结算方式`, [
+					{ id: 'damage', label: '令其受到伤害来源的1点伤害，然后摸X张牌（X为其已损失体力值，至多5）' },
+					{ id: 'loseHp', label: '令其失去1点体力，然后获得你弃置的牌' },
+				]);
+				if (choice === 'loseHp') {
+					await g.loseHp(t.id, 1, 'retianxiang');
+					// 这张牌可能已经被奸雄那类"从弃牌堆捞牌"的技能拿走，只在它还躺在弃牌堆里时才转交
+					if (t.alive && g.locate(picked[0]).zone === 'discard') {
+						await g.gainCards(t.id, picked, 'retianxiang');
+					}
+					return;
+				}
+				// 转移的是"1点伤害"本身，不继承原伤害的属性，否则火/雷杀会顺带把铁索也点着
+				await g.damage({ source: ev.source, target: t.id, amount: 1, nature: undefined });
+				const lost = Math.min(5, t.maxHp - t.hp);
+				if (t.alive && lost > 0) await g.drawCards(t.id, lost, 'retianxiang');
+			},
+		},
+	],
+};
+
+// ─────────────────────────── 太史慈（火包） ───────────────────────────
+
+const tianyi: SkillDef = {
+	id: 'tianyi',
+	cn: '天义',
+	desc: '出牌阶段限一次，你可以和一名其他角色拼点。若你赢，你使用【杀】没有距离限制且可额外使用一张【杀】直到回合结束；若你没赢，你不能使用【杀】直到回合结束。',
+	active: {
+		limit: 'turn',
+		can(g, self) {
+			return self.hand.length > 0 && g.othersFrom(self.id).some((p) => p.hand.length > 0);
+		},
+		async run(g, self) {
+			const candidates = g
+				.othersFrom(self.id)
+				.filter((p) => p.hand.length > 0)
+				.map((p) => p.id);
+			const picked = await g.askPlayers(self.id, '天义：选择一名其他角色拼点', candidates, 1, 1, true);
+			if (picked.length === 0) return;
+			markLimit(g, self, 'tianyi', 'turn');
+			const result = await pindian(g, self.id, picked[0], 'tianyi');
+			if (!result) return;
+			g.setFlag(self.id, result.initiatorWins ? 'turn:tianyiWin' : 'turn:tianyiLose', 1);
+		},
+	},
+	mods: {
+		shaLimit(g, self, base) {
+			// "不能使用【杀】"没有专门的钩子，但次数上限 0 是等价的：canUseCardNow 用
+			// `已用次数 >= 上限` 判断，0 >= 0 直接把【杀】和转化出的【杀】一起从菜单里拿掉。
+			// 只挡"使用"不挡"打出"，和原版一致（决斗/南蛮要求的是打出）
+			if (g.getFlag(self.id, 'turn:tianyiLose') > 0) return 0;
+			return g.getFlag(self.id, 'turn:tianyiWin') > 0 ? base + 1 : base;
+		},
+		distanceFrom(g, self) {
+			// 这里**故意**不用 ModSpec.ignoreDistance：它在引擎里只有【顺手牵羊】一个消费点
+			// （cards/trick.ts），【杀】的距离是 options.ts 用 inAttackRange 直接卡的，
+			// 挂上去就是死代码。压到距离下限 1 是唯一有消费点的等效做法。
+			// 已知副作用：这一回合太史慈的【顺手牵羊】【兵粮寸断】也会不受距离限制——
+			// 比原版多给了一点，报告里已列出，要精确修就得让 options.ts 认 ignoreDistance。
+			return g.getFlag(self.id, 'turn:tianyiWin') > 0 ? -Number.MAX_SAFE_INTEGER : 0;
+		},
+	},
+};
+
 export const WU_SKILLS: Record<string, SkillDef> = {
 	zhiheng,
 	jiuyuan,
@@ -345,4 +451,6 @@ export const WU_SKILLS: Record<string, SkillDef> = {
 	lianying,
 	xiaoji,
 	jieyin,
+	retianxiang,
+	tianyi,
 };
