@@ -239,10 +239,12 @@ function respond(g: Game, ask: Extract<AskRequest, { kind: 'respond' }>, rng: Rn
 				: { type: 'pass' };
 		}
 
-		case 'wuxie': {
+		case 'wuxiekeji': {
 			// 无懈是稀缺牌，关键是"救谁"而不是"救不救"。
 			// 之前一律 30% 概率瞎无懈，等于忠臣完全不会保主公 ——
 			// 这是 8 人局反贼胜率偏高的一个具体来源。
+			// 注：这段逻辑此前一直是死代码，因为引擎问的是 need='wuxie' 而牌叫
+			// 'wuxiekeji'，无懈的询问从来没发出来过（见 game.ts 里那处修复）。
 			const victim = ask.trigger?.target;
 			if (!victim) return rng.next() < 0.25 ? play(ask.options[0]) : { type: 'pass' };
 

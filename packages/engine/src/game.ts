@@ -1078,13 +1078,17 @@ export class Game {
 		for (;;) {
 			let responded = false;
 			for (const p of this.playersFrom()) {
-				const opts = this.optionProvider?.respond(this, p.id, 'wuxie', 'respond', ev) ?? [];
+				// need 必须是**牌名本身**：respond() 用 `card.name !== need` 筛手牌，
+				// 转化技也用 `to !== need` 筛。这里以前写的是 'wuxie'，而牌叫 'wuxiekeji'，
+				// 于是永远筛不出东西、opts 恒为空、询问从来没发出去过 ——
+				// 上线至今牌堆里 7 张【无懈可击】全是死牌，看破这类转化技也一起失明。
+				const opts = this.optionProvider?.respond(this, p.id, 'wuxiekeji', 'respond', ev) ?? [];
 				if (opts.length === 0) continue;
 
 				const r = await this.ask({
 					kind: 'respond',
 					who: p.id,
-					need: 'wuxie',
+					need: 'wuxiekeji',
 					mode: 'respond',
 					prompt: negated
 						? `是否对【无懈可击】使用【无懈可击】？`

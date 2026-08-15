@@ -64,7 +64,8 @@ export interface TargetSpec {
 /** 需要打出/使用一张指定的牌来响应 */
 export interface RespondAsk extends AskBase {
 	kind: 'respond';
-	/** 需要什么牌，如 'shan' / 'sha' / 'tao' / 'wuxie' / 'jiu' */
+	/** 需要什么牌。**必须是牌名本身**（'shan' / 'sha' / 'tao' / 'wuxiekeji' / 'jiu'）——
+	 * options.ts 的 respond() 拿它和 `card.name` 直接比对，写了简称就什么都筛不出来 */
 	need: string;
 	/** 是"使用"还是"打出"。桃/酒是使用，闪/无懈是打出 */
 	mode: 'use' | 'respond';
